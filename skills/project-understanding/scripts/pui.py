@@ -24,7 +24,26 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
 
 def cmd_index(args: argparse.Namespace) -> int:
     """Builds/updates index database."""
-    print("Not implemented yet")
+    from scripts.lib.indexer import Indexer
+    
+    repo_root = Path.cwd()
+    skill_root = Path(__file__).parent.parent
+    
+    with Indexer(repo_root, skill_root) as indexer:
+        # Apply CLI include/exclude patterns
+        if indexer.ignore_manager:
+            for pattern in args.include:
+                indexer.ignore_manager.add_include(pattern)
+            for pattern in args.exclude:
+                indexer.ignore_manager.add_exclude(pattern)
+        
+        # Run indexing
+        stats = indexer.run(force=args.force)
+        
+        # Print stats if requested
+        if args.stats:
+            print(stats)
+    
     return 0
 
 
@@ -92,6 +111,23 @@ Examples:
         "--watch", "-w",
         action="store_true",
         help="Watch for changes and auto-update"
+    )
+    index_parser.add_argument(
+        "--include", "-i",
+        action="append",
+        default=[],
+        help="Include pattern (can be specified multiple times)"
+    )
+    index_parser.add_argument(
+        "--exclude", "-e",
+        action="append",
+        default=[],
+        help="Exclude pattern (can be specified multiple times)"
+    )
+    index_parser.add_argument(
+        "--stats", "-s",
+        action="store_true",
+        help="Show indexing statistics"
     )
     index_parser.set_defaults(func=cmd_index)
     
