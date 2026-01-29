@@ -1,0 +1,153 @@
+# Default Ignore Patterns
+# These patterns are merged with .gitignore for file discovery
+
+# Version control
+.git
+.gitignore
+.svn
+.hg
+
+# Dependencies and packages
+node_modules
+vendor
+.pnp
+.pnp.js
+
+# Build outputs
+dist
+build
+target
+out
+output
+*.min.js
+*.min.css
+*.bundle.js
+
+# Cache and temp directories
+.cache
+tmp
+temp
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# IDE and editor files
+.vscode
+.idea
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs and databases
+*.log
+logs
+*.sqlite
+*.sqlite3
+*.db
+
+# Test and coverage outputs
+coverage
+.nyc_output
+htmlcov
+.tox
+.nox
+.pytest_cache
+
+# Documentation build
+docs/_build
+site
+
+# Binary and media files
+*.exe
+*.dll
+*.so
+*.dylib
+*.bin
+*.o
+*.a
+*.lib
+*.obj
+*.pyc
+*.pyo
+__pycache__
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.ppt
+*.pptx
+
+# Image files (usually not source)
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.ico
+*.svg
+*.webp
+*.mp3
+*.mp4
+*.avi
+*.mov
+*.wav
+*.flac
+
+# Lock files
+package-lock.json
+yarn.lock
+poetry.lock
+Pipfile.lock
+Gemfile.lock
+composer.lock
+Cargo.lock
+
+# Large data files
+*.csv
+*.tsv
+*.jsonl
+*.ndjson
+*.parquet
+*.feather
+*.hdf5
+*.h5
+*.pkl
+*.pickle
+*.npy
+*.npz
+
+# Configuration that shouldn't be parsed
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.cert
+*.crt
+secrets.yaml
+secrets.yml
+secrets.json
