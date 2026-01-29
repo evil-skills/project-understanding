@@ -16,20 +16,18 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+          cache: 'pip'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install ruff pytest
-          # Install skills-ref when available
-          # pip install skills-ref || echo "skills-ref not yet available"
+          # Coming soon: pip install skills-ref
 
       - name: Validate skill
         run: |
-          # Validate skill using skills-ref when available
-          # skills-ref validate skills/project-understanding || echo "skills-ref validation not yet available"
-          echo "Skill validation: Placeholder - skills-ref will be installed when available"
-          echo "For now, checking SKILL.md exists and has valid frontmatter..."
+          # Coming soon: skills-ref validate skills/project-understanding
+          echo "Skill validation: Checking SKILL.md exists..."
           test -f skills/project-understanding/SKILL.md && echo "SKILL.md found ✓"
 
       - name: Lint with ruff
@@ -44,8 +42,7 @@ jobs:
 
       - name: Run tests
         run: |
-          # Run pytest (will pass even if no tests exist)
-          pytest --tb=short -q || echo "No tests found yet"
+          pytest --tb=short -q
 
   docs:
     runs-on: ubuntu-latest
