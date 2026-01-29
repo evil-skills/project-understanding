@@ -54,6 +54,19 @@ project-understanding impact --symbol MyFunction
 - **Incremental Indexing**: Only re-index changed files for fast updates
 - **Token Budgeting**: Control how much context is returned to fit within LLM context windows
 
+## Release Checklist
+
+Before releasing a new version of this skill, ensure the following:
+
+- [ ] **Skill Validation**: Skill passes `skills-ref validate skills/project-understanding`
+- [ ] **Tests Pass**: All unit tests pass (`pytest`)
+- [ ] **Linting**: Code passes ruff linting and formatting checks (`ruff check . && ruff format --check .`)
+- [ ] **Version Bump**: Version updated in `skills/project-understanding/SKILL.md` frontmatter
+- [ ] **Documentation**: README.md and SKILL.md are up to date
+- [ ] **CHANGELOG**: CHANGELOG.md updated with new features and fixes (if applicable)
+- [ ] **CI Passing**: All GitHub Actions checks are green
+- [ ] **Manual Testing**: Skill tested locally with real repositories
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
