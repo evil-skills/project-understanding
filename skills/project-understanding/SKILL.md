@@ -15,10 +15,10 @@ Automated repository intelligence using Tree-sitter parsing to generate maps, de
 - **Verification:** Ensure changes don't violate architectural boundaries
 
 ## Core Workflow
-1. **Auto-Bootstrap:** The skill automatically sets up its dependencies (venv & tree-sitter) on the first call.
-2. **Index:** `opencode skill project-understanding index`
-3. **Map:** `opencode skill project-understanding repo-map`
-4. **Impact:** `opencode skill project-understanding impact --files path/to/changed_file.py`
+1. **Auto-Bootstrap:** The skill automatically sets up its dependencies on the first call.
+2. **Index:** `./scripts/pui.sh index`
+3. **Map:** `./scripts/pui.sh repomap`
+4. **Impact:** `./scripts/pui.sh impact --files path/to/changed_file.py`
 
 ## Installation
 The skill works "out of the box". On the first invocation, it automatically installs a shared virtual environment in `~/.local/share/pui/venv` (or a local fallback). Repository-specific data (index database) is stored in the `.pui/` directory of your project root.
