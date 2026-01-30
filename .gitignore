@@ -183,3 +183,9 @@ Thumbs.db
 # Exception for scripts/lib
 !skills/project-understanding/scripts/lib/
 !skills/project-understanding/scripts/lib/**
+
+# Re-ignore caches under scripts/lib
+skills/project-understanding/scripts/lib/__pycache__/
+skills/project-understanding/scripts/lib/**/*.pyc
+skills/project-understanding/scripts/lib/**/*.pyo
+skills/project-understanding/scripts/lib/**/*.pyd
