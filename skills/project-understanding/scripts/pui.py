@@ -383,6 +383,17 @@ def cmd_workspace(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     """Main entrypoint for the PUI CLI."""
+    # Pre-flight check for dependencies
+    try:
+        import tree_sitter  # noqa: F401
+    except ImportError as e:
+        print(f"Error: Missing dependency '{e.name}'.", file=sys.stderr)
+        print("Please run the bootstrap script first:", file=sys.stderr)
+        print(f"  {sys.executable} {Path(__file__).parent}/bootstrap.py", file=sys.stderr)
+        print("\nOr use the provided shim:", file=sys.stderr)
+        print(f"  {Path(__file__).parent}/pui.sh", file=sys.stderr)
+        return 1
+
     parser = argparse.ArgumentParser(
         prog="pui",
         description="Project Understanding Interface - analyze and navigate codebases",

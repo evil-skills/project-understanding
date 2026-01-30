@@ -19,9 +19,22 @@ from pathlib import Path
 
 
 # Constants
-PUI_DIR = Path(".pui")
-VENV_DIR = PUI_DIR / "venv"
+PUI_DATA_DIR = Path(".pui")
+DEFAULT_VENV_DIR = PUI_DATA_DIR / "venv"
 REQUIREMENTS_FILE = Path(__file__).parent.parent / "requirements.txt"
+
+# This will be updated by args.target_dir
+VENV_DIR = DEFAULT_VENV_DIR
+
+
+def check_compiler() -> bool:
+    """Check if a C compiler is available."""
+    import shutil
+    compilers = ["gcc", "clang", "cl"]
+    for c in compilers:
+        if shutil.which(c):
+            return True
+    return False
 
 
 def normalize_package_name(name: str) -> str:
@@ -140,7 +153,7 @@ def check_offline_availability(offline: bool) -> bool:
             installed = get_installed_packages(pip_path)
 
     available: set[str] = set()
-    packages_dir = PUI_DIR / "packages"
+    packages_dir = PUI_DATA_DIR / "packages"
     if packages_dir.exists():
         for package_file in packages_dir.glob("*.whl"):
             dist = extract_distribution_name(package_file.name)
@@ -180,8 +193,8 @@ def create_venv() -> bool:
     print(f"Creating virtual environment at {VENV_DIR}...")
 
     try:
-        # Create the .pui directory if it doesn't exist
-        PUI_DIR.mkdir(parents=True, exist_ok=True)
+        # Create the parent directory if it doesn't exist
+        VENV_DIR.parent.mkdir(parents=True, exist_ok=True)
 
         # Create virtual environment
         subprocess.run(
@@ -232,7 +245,7 @@ def install_dependencies(offline: bool = False) -> bool:
     if offline:
         cmd.append("--no-index")
         cmd.append("--find-links")
-        cmd.append(str(PUI_DIR / "packages"))
+        cmd.append(str(PUI_DATA_DIR / "packages"))
         print("(Offline mode: using local packages only)")
 
     cmd.extend(["-r", str(REQUIREMENTS_FILE)])
@@ -264,13 +277,6 @@ try:
     print("✓ tree-sitter imported successfully")
 except ImportError as e:
     print(f"✗ Failed to import tree-sitter: {e}")
-    sys.exit(1)
-
-try:
-    from tree_sitter_languages import get_language, get_parser
-    print("✓ tree-sitter-languages imported successfully")
-except ImportError as e:
-    print(f"✗ Failed to import tree-sitter-languages: {e}")
     sys.exit(1)
 
 print("All dependencies verified!")
@@ -310,6 +316,7 @@ def print_next_steps():
 
 def main(argv: list[str] | None = None) -> int:
     """Main entrypoint for bootstrap script."""
+    global VENV_DIR
     parser = argparse.ArgumentParser(
         description="Bootstrap Project Understanding Skill dependencies",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -324,15 +331,33 @@ Examples:
         action="store_true",
         help="Skip network operations, use pre-downloaded packages only"
     )
+    parser.add_argument(
+        "--non-interactive",
+        action="store_true",
+        help="Skip confirmation prompts"
+    )
+    parser.add_argument(
+        "--target-dir",
+        type=str,
+        help="Target directory for virtual environment"
+    )
 
     args = parser.parse_args(argv)
 
-    print("Project Understanding Skill Bootstrap")
-    print("=" * 60)
+    if args.target_dir:
+        VENV_DIR = Path(args.target_dir)
+
+    if not args.non_interactive:
+        print("Project Understanding Skill Bootstrap")
+        print("=" * 60)
 
     # Check Python version
     if not check_python_version():
         return 1
+
+    # Check for compiler (warning only)
+    if not check_compiler():
+        print("Warning: No C compiler (gcc/clang/cl) found. tree-sitter installation might fail if wheels are unavailable.")
 
     # Check offline availability if requested
     if args.offline and not check_offline_availability(args.offline):
@@ -341,15 +366,21 @@ Examples:
 
     # Check if venv already exists
     if VENV_DIR.exists():
-        print(f"Virtual environment already exists at {VENV_DIR}")
-        response = input("Re-create? [y/N]: ").strip().lower()
-        if response == 'y':
-            import shutil
-            shutil.rmtree(VENV_DIR)
-            if not create_venv():
-                return 1
+        if not args.non_interactive:
+            print(f"Virtual environment already exists at {VENV_DIR}")
+            response = input("Re-create? [y/N]: ").strip().lower()
+            if response == 'y':
+                import shutil
+                shutil.rmtree(VENV_DIR)
+                if not create_venv():
+                    return 1
+            else:
+                print("Using existing virtual environment.")
         else:
-            print("Using existing virtual environment.")
+            # In non-interactive mode, we assume we want to keep/refresh it
+            # But we only refresh if we need to.
+            # For simplicity, we just proceed to install_dependencies
+            pass
     else:
         if not create_venv():
             return 1
@@ -360,11 +391,13 @@ Examples:
 
     # Verify installation
     if not verify_installation():
-        print("\nInstallation verification failed.")
+        if not args.non_interactive:
+            print("\nInstallation verification failed.")
         return 1
 
     # Print next steps
-    print_next_steps()
+    if not args.non_interactive:
+        print_next_steps()
 
     return 0
 
