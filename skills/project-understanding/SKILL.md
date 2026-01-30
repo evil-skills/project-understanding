@@ -57,8 +57,8 @@ Use this skill when you need to:
 The typical workflow follows this pattern: **bootstrap → index → repomap → zoom → impact**
 
 ```bash
-# 1. Bootstrap: Initialize the skill in your project
-opencode skill project-understanding bootstrap
+# 1. Bootstrap: Set up dependencies (.pui/venv)
+pui bootstrap
 
 # 2. Index: Build the searchable code index
 opencode skill project-understanding index build
@@ -67,23 +67,25 @@ opencode skill project-understanding index build
 opencode skill project-understanding repo-map
 
 # 4. Zoom: Drill down into specific areas
-opencode skill project-understanding analyze --target src/main.py
-opencode skill project-understanding call-graph --symbol MyClass
+opencode skill project-understanding zoom --target src/main.py
+opencode skill project-understanding graph --symbol MyClass
 
 # 5. Impact: Assess change effects
-opencode skill project-understanding impact --change "src/api/routes.py"
+pui impact --git-diff HEAD~1..HEAD
+pui impact --files "src/api/routes.py"
 ```
 
 ## Basic Commands
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `bootstrap` | Initialize skill configuration | `bootstrap --force` |
-| `index` | Manage incremental index | `index build`, `index update` |
-| `repo-map` | Repository structure view | `repo-map --depth 3` |
-| `analyze` | Deep file/symbol analysis | `analyze --target src/main.py` |
-| `call-graph` | Generate call graphs | `call-graph --symbol MyClass` |
-| `impact` | Change impact analysis | `impact --change src/api.py` |
+| `bootstrap` | Set up dependencies (.pui/venv) | `pui bootstrap` |
+| `index` | Manage incremental index | `pui index` |
+| `repomap` | Repository structure view | `pui repomap` |
+| `zoom` | Deep file/symbol analysis | `pui zoom --target src/main.py` |
+| `graph` | Generate call graphs | `pui graph --symbol MyClass` |
+| `impact` | Change impact analysis | `pui impact --files src/api.py` |
+| `benchmark` | Run performance benchmarks | `pui benchmark` |
 
 ## Common Workflows
 
@@ -91,48 +93,48 @@ opencode skill project-understanding impact --change "src/api/routes.py"
 
 ```bash
 # 1. Identify the target for refactoring
-opencode skill project-understanding analyze --target src/old_module.py
+opencode skill project-understanding zoom --target src/old_module.py
 
 # 2. Find all dependencies and callers
-opencode skill project-understanding call-graph --symbol OldClass --direction both
+opencode skill project-understanding graph --symbol OldClass --depth 2
 
 # 3. Assess impact of the change
-opencode skill project-understanding impact --change src/old_module.py --type modify
+pui impact --files src/old_module.py
 
 # 4. After changes, update the index
-opencode skill project-understanding index update
+opencode skill project-understanding index
 ```
 
 ### Add Feature Workflow
 
 ```bash
 # 1. Understand existing architecture
-opencode skill project-understanding repo-map --depth 2
+opencode skill project-understanding repomap
 
 # 2. Find similar features to use as templates
-opencode skill project-understanding analyze --target src/features/existing_feature.py
+opencode skill project-understanding zoom --target src/features/existing_feature.py
 
 # 3. Check where to integrate the new feature
-opencode skill project-understanding call-graph --symbol FeatureManager
+opencode skill project-understanding graph --symbol FeatureManager
 
 # 4. Verify no breaking changes
-opencode skill project-understanding impact --change src/features/new_feature.py --type add
+pui impact --files src/features/new_feature.py
 ```
 
 ### Fix Bug Workflow
 
 ```bash
 # 1. Locate the problematic code
-opencode skill project-understanding analyze --target src/buggy_module.py
+opencode skill project-understanding zoom --target src/buggy_module.py
 
 # 2. Trace the execution path
-opencode skill project-understanding call-graph --symbol buggy_function --direction incoming
+opencode skill project-understanding graph --symbol buggy_function --depth 3
 
 # 3. Understand the root cause
-opencode skill project-understanding analyze --target src/buggy_module.py --context 20
+opencode skill project-understanding zoom --target src/buggy_module.py
 
 # 4. Check for similar issues elsewhere
-opencode skill project-understanding call-graph --symbol related_function
+opencode skill project-understanding graph --symbol related_function
 ```
 
 ## How to Interpret Confidence

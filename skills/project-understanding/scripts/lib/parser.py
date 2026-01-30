@@ -5,14 +5,13 @@ Provides language-aware parsing using tree-sitter with prebuilt grammars.
 Supports Python, JavaScript, TypeScript, Go, and Rust.
 """
 
-import hashlib
 import re
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple, Callable
+from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
 
 try:
-    from tree_sitter import Language, Parser, Tree, Node, Query
+    from tree_sitter import Parser, Tree, Node, Query
     TREE_SITTER_AVAILABLE = True
 except ImportError:
     TREE_SITTER_AVAILABLE = False
@@ -162,7 +161,7 @@ class LanguageSupport:
                 query_text = query_path.read_text()
                 lang = self._load_language(language)
                 self._queries[language][query_name] = Query(lang, query_text)
-            except Exception as e:
+            except Exception:
                 # Log error but don't crash - some queries may not be available
                 return None
         
@@ -220,10 +219,153 @@ class TreeSitterParser:
                 language=language
             )
         except Exception as e:
+            # Fallback to regex-based extraction if tree-sitter fails
+            return self._regex_parse_fallback(path, content, language, [f"Tree-sitter failed: {e}"])
+
+    def _regex_parse_fallback(self, path: Path, content: str, language: str, errors: List[str]) -> ParseResult:
+        """Fallback to regex-based extraction when tree-sitter is unavailable."""
+        symbols = []
+        imports = []
+        callsites = []
+        
+        # If content is empty, return early to satisfy tests expecting 0 symbols
+        if not content.strip():
             return ParseResult(
-                symbols=[], imports=[], callsites=[],
-                language=language, errors=[f"Parse error: {e}"]
+                symbols=[],
+                imports=[],
+                callsites=[],
+                language=language,
+                errors=errors
             )
+
+        lines = content.split('\n')
+        
+        if language == 'python':
+            # Basic Python regexes
+            func_re = re.compile(r'^\s*(?:async\s+)?def\s+([a-zA-Z_]\w*)')
+            class_re = re.compile(r'^\s*class\s+([a-zA-Z_]\w*)')
+            import_re = re.compile(r'^\s*(?:from\s+([\w\.]+)\s+)?import\s+(.+)')
+            call_re = re.compile(r'([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)\s*\(')
+            
+            current_class = None
+            for i, line in enumerate(lines):
+                line_num = i + 1
+                
+                # Classes
+                m = class_re.match(line)
+                if m:
+                    current_class = m.group(1)
+                    symbols.append(Symbol(
+                        name=current_class,
+                        kind='class',
+                        line_start=line_num,
+                        column_start=line.find('class'),
+                        signature=line.strip()
+                    ))
+                    continue
+                
+                # Functions/Methods
+                m = func_re.match(line)
+                if m:
+                    kind = 'method' if current_class and line.startswith('    ') else 'function'
+                    symbols.append(Symbol(
+                        name=m.group(1),
+                        kind=kind,
+                        line_start=line_num,
+                        column_start=line.find('def'),
+                        signature=line.strip(),
+                        parent_name=current_class if kind == 'method' else None
+                    ))
+                    continue
+                
+                # Imports
+                m = import_re.match(line)
+                if m:
+                    module = m.group(1) or m.group(2).split(',')[0].split(' as ')[0].strip()
+                    if 'import' in line and not m.group(1):
+                        module = m.group(2).split(',')[0].split(' as ')[0].strip()
+                    
+                    imports.append(Import(
+                        module=module,
+                        name=None,
+                        alias=None,
+                        line=line_num,
+                        raw_text=line.strip()
+                    ))
+                
+                # Calls (simple heuristic)
+                for call_match in call_re.finditer(line):
+                    callee = call_match.group(1)
+                    confidence = 0.6 if '.' in callee else 0.3
+                    callsites.append(Callsite(
+                        callee_text=callee,
+                        line=line_num,
+                        confidence=confidence
+                    ))
+                    
+        elif language in ['javascript', 'typescript']:
+            # Basic JS/TS regexes
+            func_re = re.compile(r'(?:function\s+([a-zA-Z_]\w*)|([a-zA-Z_]\w*)\s*=\s*(?:async\s+)?(?:\([^)]*\)|[a-zA-Z_]\w*)\s*=>)')
+            class_re = re.compile(r'class\s+([a-zA-Z_]\w*)')
+            import_re = re.compile(r'import\s+.*from\s+[\'"](.+)[\'"]')
+            
+            for i, line in enumerate(lines):
+                line_num = i + 1
+                m = func_re.search(line)
+                if m:
+                    name = m.group(1) or m.group(2)
+                    symbols.append(Symbol(name=name, kind='function', line_start=line_num, column_start=line.find(name), signature=line.strip()))
+                
+                m = class_re.search(line)
+                if m:
+                    symbols.append(Symbol(name=m.group(1), kind='class', line_start=line_num, column_start=line.find(m.group(1)), signature=line.strip()))
+                    
+                m = import_re.search(line)
+                if m:
+                    imports.append(Import(module=m.group(1), name=None, alias=None, line=line_num, raw_text=line.strip()))
+
+        elif language == 'rust':
+            func_re = re.compile(r'fn\s+([a-zA-Z_]\w*)')
+            struct_re = re.compile(r'(?:struct|enum|trait)\s+([a-zA-Z_]\w*)')
+            use_re = re.compile(r'use\s+([^;]+);')
+            
+            for i, line in enumerate(lines):
+                line_num = i + 1
+                m = func_re.search(line)
+                if m:
+                    symbols.append(Symbol(name=m.group(1), kind='function', line_start=line_num, column_start=line.find(m.group(1))))
+                m = struct_re.search(line)
+                if m:
+                    symbols.append(Symbol(name=m.group(1), kind='class', line_start=line_num, column_start=line.find(m.group(1))))
+                m = use_re.search(line)
+                if m:
+                    imports.append(Import(module=m.group(1).strip(), name=None, alias=None, line=line_num, raw_text=line.strip()))
+
+        # Extract docstrings (very simple heuristic for Python)
+        if language == 'python':
+            for i in range(len(symbols)):
+                sym = symbols[i]
+                start_line = sym.line_start
+                if start_line < len(lines):
+                    next_line = lines[start_line].strip()
+                    if next_line.startswith(('"""', "'''")):
+                        sym.docstring = next_line.strip('"\'')
+
+        # If still no symbols and NOT empty, add file-level symbol
+        if not symbols and content.strip():
+            symbols = [Symbol(
+                name=path.stem,
+                kind='file',
+                line_start=1
+            )]
+            
+        return ParseResult(
+            symbols=symbols,
+            imports=imports,
+            callsites=callsites,
+            language=language,
+            errors=errors
+        )
     
     def extract_symbols(self, tree: Tree, path: Path, language: str, content: str) -> List[Symbol]:
         """
@@ -370,7 +512,7 @@ class TreeSitterParser:
     
     def _build_symbol_hierarchy(self, symbols: List[Symbol], content: str) -> None:
         """Build parent-child relationships between symbols based on line ranges."""
-        lines = content.split('\n')
+        content.split('\n')
         
         for i, symbol in enumerate(symbols):
             # Find potential parent (enclosing symbol)
@@ -404,7 +546,7 @@ class TreeSitterParser:
             
             for capture in captures:
                 node = capture[0]
-                capture_name = capture[1]
+                capture[1]
                 
                 raw_text = node.text.decode('utf8') if isinstance(node.text, bytes) else str(node.text)
                 
@@ -540,7 +682,7 @@ class TreeSitterParser:
             
             for capture in captures:
                 node = capture[0]
-                capture_name = capture[1]
+                capture[1]
                 
                 callee_text = node.text.decode('utf8') if isinstance(node.text, bytes) else str(node.text)
                 line = node.start_point[0] + 1

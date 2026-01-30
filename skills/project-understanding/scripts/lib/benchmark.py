@@ -153,6 +153,7 @@ class BenchmarkRunner:
             # Time cold start
             start = time.perf_counter()
             indexer = Indexer(test_repo, self.skill_root)
+            indexer.initialize()
             stats = indexer.run()
             duration_ms = (time.perf_counter() - start) * 1000
             
@@ -175,6 +176,7 @@ class BenchmarkRunner:
             # Initial index
             self._create_sample_repo(test_repo, num_files=100)
             indexer = Indexer(test_repo, self.skill_root)
+            indexer.initialize()
             indexer.run()
             
             # Modify some files
@@ -206,6 +208,7 @@ class BenchmarkRunner:
             # Setup repo
             self._create_sample_repo(test_repo, num_files=50)
             indexer = Indexer(test_repo, self.skill_root)
+            indexer.initialize()
             indexer.run()
             
             db_path = test_repo / ".pui" / "index.sqlite"

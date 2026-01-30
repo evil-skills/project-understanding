@@ -44,21 +44,20 @@ output:
 
 ### `bootstrap`
 
-Initialize the Project Understanding Skill in a repository.
+Set up runtime dependencies for the Project Understanding Skill.
 
 ```bash
-opencode skill project-understanding bootstrap [options]
+pui bootstrap [--offline]
 ```
 
 Options:
-- `--force`: Overwrite existing configuration
-- `--template NAME`: Use predefined template (python, node, rust, go)
-- `--dry-run`: Show what would be created without making changes
+- `--offline`: Use only locally available packages
 
 Creates:
-- `.project-understanding.yaml` - Configuration file
-- `.puiignore` - Ignore patterns (if not exists)
-- `.pui/` directory - Index storage
+- `.pui/venv` - Local virtual environment for dependencies
+
+Installs:
+- Required Python dependencies into `.pui/venv`
 
 ### `index`
 
@@ -162,15 +161,15 @@ Call Graph Confidence:
 Analyze the impact of proposed changes.
 
 ```bash
-opencode skill project-understanding impact --change <path> [options]
+pui impact [options]
 ```
 
 Options:
-- `--change PATH`: Path to the changed file (required)
-- `--type {add,modify,delete}`: Type of change (default: modify)
-- `--downstream`: Show downstream dependencies
-- `--upstream`: Show upstream dependencies
-- `--depth N`: Analysis depth (default: 3)
+- `--git-diff BASE..COMPARE`: Analyze changes from a git diff
+- `--files PATH...`: Analyze changes for specific files
+- `--format {markdown,json}`: Output format
+- `--max-tokens N`: Token budget for output
+- `--include-tests`: Include test impact analysis
 
 Impact Scoring:
 - **Critical**: Core functionality, many dependents

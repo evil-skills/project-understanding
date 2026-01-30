@@ -21,8 +21,13 @@ from pathlib import Path
 
 def cmd_bootstrap(args: argparse.Namespace) -> int:
     """Sets up local runtime dependencies."""
-    print("Not implemented yet")
-    return 0
+    from scripts import bootstrap
+
+    argv = []
+    if getattr(args, "offline", False):
+        argv.append("--offline")
+
+    return bootstrap.main(argv)
 
 
 def cmd_index(args: argparse.Namespace) -> int:
@@ -149,21 +154,36 @@ def cmd_impact(args: argparse.Namespace) -> int:
     """Prints ImpactPack for a changed set."""
     from scripts.lib.packs import ImpactPackGenerator
     from scripts.lib.budget import resolve_budget
+    from scripts.lib.impact import GitDiffParser
     
     repo_root = Path.cwd()
     
     # Resolve budget (handles "auto" value)
     budget = resolve_budget(args.max_tokens, "impact", config_budget=6000)
     
-    with ImpactPackGenerator(repo_root) as gen:
-        # Collect targets from various sources
+    # Collect targets from various sources
+    targets = []
+    if hasattr(args, 'git_diff') and args.git_diff:
+        try:
+            parser = GitDiffParser(repo_root)
+            repo_root = parser.repo_root
+            changed_files = parser.get_changed_files(args.git_diff)
+        except RuntimeError as exc:
+            print(f"Git diff failed for {args.git_diff}: {exc}", file=sys.stderr)
+            return 1
+        targets = [str(path.relative_to(repo_root)) for path in changed_files]
+    elif hasattr(args, 'files') and args.files:
+        # Normalize files to repo-root-relative paths
         targets = []
-        if hasattr(args, 'git_diff') and args.git_diff:
-            # TODO: Implement git diff parsing
-            print("Git diff parsing not yet implemented")
-        elif hasattr(args, 'files') and args.files:
-            targets = args.files
-        
+        for f in args.files:
+            p = Path(f).resolve()
+            try:
+                targets.append(str(p.relative_to(repo_root)))
+            except ValueError:
+                # Fallback for files outside repo root
+                targets.append(f)
+    
+    with ImpactPackGenerator(repo_root) as gen:
         pack = gen.generate(targets, budget_tokens=budget)
         
         if args.format == "json":
@@ -289,8 +309,10 @@ def cmd_depgraph(args: argparse.Namespace) -> int:
 
 def cmd_benchmark(args: argparse.Namespace) -> int:
     """Run performance benchmarks."""
-    print("Not implemented yet")
-    return 0
+    from scripts.lib.benchmark import run_benchmark_command
+    
+    output_file = Path(args.output) if args.output else None
+    return run_benchmark_command(output_format=args.format, output_file=output_file)
 
 
 
@@ -369,14 +391,12 @@ def main(argv: list[str] | None = None) -> int:
 Examples:
   pui bootstrap              # Set up local runtime dependencies
   pui index                  # Build/update index database
-  pui index --watch          # Build index and start watching for changes
+  pui watch                  # Watch files and auto-update index
   pui repomap                # Print RepoMapPack (Markdown)
-  pui repomap --budget auto  # Auto-detect token budget for model
+  pui repomap --max-tokens auto  # Auto-detect token budget for model
   pui find "auth*"           # Fuzzy search for symbols matching "auth*"
   pui zoom src/auth.py       # Print ZoomPack for file
-  pui impact --git-diff HEAD~1..HEAD  # Print ImpactPack for recent changes
   pui graph -s auth_login -d 2 --format mermaid  # Export dependency graph
-  pui watch                  # Watch files and auto-update index
   pui depgraph --format mermaid       # Generate module dependency graph
         """
     )
@@ -387,6 +407,11 @@ Examples:
     bootstrap_parser = subparsers.add_parser(
         "bootstrap",
         help="Set up local runtime dependencies"
+    )
+    bootstrap_parser.add_argument(
+        "--offline",
+        action="store_true",
+        help="Skip network operations, use pre-downloaded packages only"
     )
     bootstrap_parser.set_defaults(func=cmd_bootstrap)
     

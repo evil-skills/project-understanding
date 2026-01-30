@@ -1,12 +1,12 @@
 # Project Understanding Skill - Pinned Dependencies
 # Generated: 2026-01-30
-# Python: >=3.8
+# Python: >=3.10
 #
 # To install:
-#   pip install -r requirements.txt
+#   pip install -r scripts/requirements.txt
 #
 # To download for offline use:
-#   pip download -r requirements.txt -d .pui/packages
+#   pip download -r scripts/requirements.txt -d .pui/packages
 
 # Core dependencies - tree-sitter for parsing
 tree-sitter==0.20.4

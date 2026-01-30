@@ -22,15 +22,7 @@ from pathlib import Path
 # Constants
 PUI_DIR = Path(".pui")
 VENV_DIR = PUI_DIR / "venv"
-REQUIREMENTS_FILE = Path(__file__).parent / "requirements.txt"
-
-
-def check_python_version() -> bool:
-    """Check if Python version is 3.10 or higher."""
-    if sys.version_info < (3, 10):
-        print(f"Error: Python 3.10+ required, found {sys.version_info.major}.{sys.version_info.minor}")
-        return False
-    return True
+REQUIREMENTS_FILE = Path(__file__).parent.parent / "requirements.txt"
 
 
 def normalize_package_name(name: str) -> str:
@@ -121,6 +113,14 @@ def extract_distribution_name(filename: str) -> str:
     return ""
 
 
+def check_python_version() -> bool:
+    """Check if Python version is 3.10 or higher."""
+    if sys.version_info < (3, 10):
+        print(f"Error: Python 3.10+ required, found {sys.version_info.major}.{sys.version_info.minor}")
+        return False
+    return True
+
+
 def check_offline_availability(offline: bool) -> bool:
     """Check if offline mode is possible (requirements already satisfied or packages available)."""
     if not offline:
@@ -136,6 +136,7 @@ def check_offline_availability(offline: bool) -> bool:
         pip_path = VENV_DIR / "bin" / "pip"
         if not pip_path.exists():
             pip_path = VENV_DIR / "Scripts" / "pip.exe"  # Windows
+
         if pip_path.exists():
             installed = get_installed_packages(pip_path)
 
@@ -178,11 +179,11 @@ def check_offline_availability(offline: bool) -> bool:
 def create_venv() -> bool:
     """Create virtual environment under .pui/venv/."""
     print(f"Creating virtual environment at {VENV_DIR}...")
-    
+
     try:
         # Create the .pui directory if it doesn't exist
         PUI_DIR.mkdir(parents=True, exist_ok=True)
-        
+
         # Create virtual environment
         subprocess.run(
             [sys.executable, "-m", "venv", str(VENV_DIR)],
@@ -220,23 +221,23 @@ def get_python_path() -> Path:
 def install_dependencies(offline: bool = False) -> bool:
     """Install dependencies from requirements.txt."""
     pip_path = get_pip_path()
-    
+
     if not REQUIREMENTS_FILE.exists():
         print(f"Error: Requirements file not found at {REQUIREMENTS_FILE}")
         return False
-    
+
     print(f"Installing dependencies from {REQUIREMENTS_FILE}...")
-    
+
     cmd = [str(pip_path), "install"]
-    
+
     if offline:
         cmd.append("--no-index")
         cmd.append("--find-links")
         cmd.append(str(PUI_DIR / "packages"))
         print("(Offline mode: using local packages only)")
-    
+
     cmd.extend(["-r", str(REQUIREMENTS_FILE)])
-    
+
     try:
         result = subprocess.run(cmd, check=True, capture_output=False)
         print("✓ Dependencies installed successfully")
@@ -246,7 +247,7 @@ def install_dependencies(offline: bool = False) -> bool:
         if offline:
             print("\nOffline mode failed. To prepare for offline use:")
             print("  1. First run with network: python scripts/bootstrap.py")
-            print("  2. Download packages: pip download -r scripts/requirements.txt -d .pui/packages")
+            print("  2. Download packages: pip download -r requirements.txt -d .pui/packages")
         return False
     except Exception as e:
         print(f"Error installing dependencies: {e}")
@@ -256,7 +257,7 @@ def install_dependencies(offline: bool = False) -> bool:
 def verify_installation() -> bool:
     """Verify that the installation works by importing key packages."""
     python_path = get_python_path()
-    
+
     test_script = """
 import sys
 try:
@@ -275,7 +276,7 @@ except ImportError as e:
 
 print("All dependencies verified!")
 """
-    
+
     try:
         result = subprocess.run(
             [str(python_path), "-c", test_script],
@@ -283,14 +284,14 @@ print("All dependencies verified!")
             text=True,
             timeout=30
         )
-        
+
         print(result.stdout)
-        
+
         if result.returncode != 0:
             if result.stderr:
                 print(f"Verification errors:\n{result.stderr}")
             return False
-        
+
         return True
     except Exception as e:
         print(f"Error verifying installation: {e}")
@@ -304,11 +305,11 @@ def print_next_steps():
     print("=" * 60)
     print("\nNext step:")
     print("  python skills/project-understanding/scripts/pui.py index")
-    
+
     print("\n" + "=" * 60)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     """Main entrypoint for bootstrap script."""
     parser = argparse.ArgumentParser(
         description="Bootstrap Project Understanding Skill dependencies",
@@ -324,21 +325,21 @@ Examples:
         action="store_true",
         help="Skip network operations, use pre-downloaded packages only"
     )
-    
-    args = parser.parse_args()
-    
+
+    args = parser.parse_args(argv)
+
     print("Project Understanding Skill Bootstrap")
     print("=" * 60)
-    
+
     # Check Python version
     if not check_python_version():
         return 1
-    
+
     # Check offline availability if requested
     if args.offline and not check_offline_availability(args.offline):
         print("\nCannot proceed in offline mode.")
         return 1
-    
+
     # Check if venv already exists
     if VENV_DIR.exists():
         print(f"Virtual environment already exists at {VENV_DIR}")
@@ -353,19 +354,19 @@ Examples:
     else:
         if not create_venv():
             return 1
-    
+
     # Install dependencies
     if not install_dependencies(offline=args.offline):
         return 1
-    
+
     # Verify installation
     if not verify_installation():
         print("\nInstallation verification failed.")
         return 1
-    
+
     # Print next steps
     print_next_steps()
-    
+
     return 0
 
 

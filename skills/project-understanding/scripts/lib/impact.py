@@ -113,7 +113,23 @@ class GitDiffParser:
     """Parses git diff output to extract changes."""
     
     def __init__(self, repo_root: Path):
-        self.repo_root = repo_root
+        self.repo_root = self._resolve_repo_root(repo_root)
+
+    def _resolve_repo_root(self, repo_root: Path) -> Path:
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "--show-toplevel"],
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+                check=True
+            )
+        except FileNotFoundError as exc:
+            raise RuntimeError("Git not found") from exc
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError(f"Git command failed: {exc.stderr}") from exc
+
+        return Path(result.stdout.strip())
     
     def get_changed_files(self, ref_range: str) -> List[Path]:
         """Get list of changed files from git diff."""
@@ -129,9 +145,7 @@ class GitDiffParser:
             files = []
             for line in result.stdout.strip().split('\n'):
                 if line:
-                    file_path = self.repo_root / line
-                    if file_path.exists():
-                        files.append(file_path)
+                    files.append(self.repo_root / line)
             
             return files
             
@@ -144,7 +158,7 @@ class GitDiffParser:
         """Get diff hunks for a specific file."""
         try:
             result = subprocess.run(
-                ["git", "diff", "-U0", ref_range, "--", str(file_path)],
+                ["git", "diff", "-U0", ref_range, "--", str(file_path.relative_to(self.repo_root))],
                 cwd=self.repo_root,
                 capture_output=True,
                 text=True,

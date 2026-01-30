@@ -17,7 +17,14 @@ jobs:
         python-version: '3.10'
     - name: Install dependencies
       run: |
-        pip install -r scripts/requirements.txt
-        pip install pytest
+        pip install -r project-understanding-skill/requirements.txt
+        pip install -r project-understanding-skill/skills/project-understanding/scripts/requirements.txt
+        pip install pytest ruff skills-ref
+    - name: Lint with ruff
+      run: ruff check project-understanding-skill/skills/project-understanding
+    - name: Validate skill
+      run: skills-ref validate project-understanding-skill/skills/project-understanding
     - name: Run tests
-      run: cd skills/project-understanding && pytest tests/ -v
+      run: |
+        export PYTHONPATH=$PYTHONPATH:$(pwd)/project-understanding-skill/skills/project-understanding
+        pytest project-understanding-skill/skills/project-understanding/tests/ -v

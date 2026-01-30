@@ -184,6 +184,7 @@ class TestSafeDefaults:
             
             # Run indexer
             indexer = Indexer(repo_root, skill_root)
+            indexer.initialize()
             indexer.run()
             
             # Verify original file was not modified

@@ -69,16 +69,22 @@ source .pui/venv/bin/activate  # Linux/macOS
 For air-gapped or offline environments:
 
 ```bash
+# Run all commands from the repo root.
 # Step 1: On a machine with internet, download packages
+# Choose the download command that matches your bootstrap entrypoint.
+# Repo-local bootstrap
 pip download -r scripts/requirements.txt -d .pui/packages
+# pui bootstrap
+pip download -r skills/project-understanding/requirements.txt -d .pui/packages
 
 # Step 2: Copy the entire project directory to the offline machine
 
 # Step 3: On the offline machine, run bootstrap with --offline flag
 python scripts/bootstrap.py --offline
+pui bootstrap --offline
 ```
 
-**Note:** Offline mode requires pre-downloaded packages in `.pui/packages/`. The bootstrap script will verify existing packages before attempting installation.
+**Note:** Offline mode uses combined availability from an existing venv and `.pui/packages/` contents; the bootstrap script checks both.
 
 ## Quick Demo
 
@@ -103,7 +109,7 @@ project-understanding impact --symbol MyFunction
 ## Compatibility
 
 **Required:**
-- Python 3.8+
+- Python 3.10+
 
 **Optional (for enhanced parsing):**
 - Tree-sitter language grammars (auto-installed on first use)
