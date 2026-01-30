@@ -674,7 +674,7 @@ Examples:
     )
     
     # workspace graph
-    ws_graph_parser = workspace_subparsers.add_parser(
+    workspace_subparsers.add_parser(
         "graph",
         help="Show unified workspace graph"
     )

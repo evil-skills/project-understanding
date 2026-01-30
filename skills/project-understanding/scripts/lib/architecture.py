@@ -7,7 +7,7 @@ Provides detection of:
 - Application layers (routes, controllers, services, models)
 """
 
-from typing import List, Dict, Any, Optional, Set, Tuple
+from typing import List, Dict, Any, Optional
 from pathlib import Path
 from dataclasses import dataclass, field
 from enum import Enum
@@ -83,7 +83,7 @@ class ArchitecturePack:
     def to_dict(self) -> Dict[str, Any]:
         return {
             'frameworks': [f.to_dict() for f in self.frameworks],
-            'layers': [l.to_dict() for l in self.layers],
+            'layers': [layer.to_dict() for layer in self.layers],
             'patterns': self.patterns,
             'recommendations': self.recommendations
         }

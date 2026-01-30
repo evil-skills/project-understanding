@@ -14,7 +14,6 @@ import threading
 from pathlib import Path
 from typing import Optional, Callable, Set, List
 from dataclasses import dataclass, field
-from collections import defaultdict
 
 try:
     from watchdog.observers import Observer

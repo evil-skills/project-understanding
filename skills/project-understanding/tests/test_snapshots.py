@@ -10,7 +10,6 @@ import json
 from pathlib import Path
 
 from scripts.lib.packs import (
-    RepoMapPack, ZoomPack, ImpactPack,
     RepoMapPackGenerator, ZoomPackGenerator, ImpactPackGenerator
 )
 from scripts.lib.db import Database
@@ -79,11 +78,11 @@ def test_main():
                                    signature="def main()", docstring="Main entry point.")
             helper_id = db.add_symbol(main_file, "helper", "function", 7, 10,
                                      signature="def helper()", docstring="Helper function.")
-            class_id = db.add_symbol(main_file, "MainClass", "class", 12, 17,
+            db.add_symbol(main_file, "MainClass", "class", 12, 17,
                                     signature="class MainClass:", docstring="Main class.")
             method_id = db.add_symbol(main_file, "method", "method", 15, 16,
                                      signature="def method(self)")
-            util_id = db.add_symbol(util_file, "utility", "function", 2, 4,
+            db.add_symbol(util_file, "utility", "function", 2, 4,
                                    signature="def utility()", docstring="Utility function.")
             test_id = db.add_symbol(test_file, "test_main", "function", 2, 3,
                                    signature="def test_main()")

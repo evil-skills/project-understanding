@@ -16,8 +16,7 @@ import tempfile
 from pathlib import Path
 
 from scripts.lib.graph import (
-    GraphEngine, GraphNode, ImpactResult,
-    create_graph_engine, get_callers, get_callees, get_impact
+    GraphEngine, get_callers, get_callees
 )
 from scripts.lib.db import Database
 

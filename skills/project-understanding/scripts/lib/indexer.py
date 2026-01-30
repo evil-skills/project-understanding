@@ -5,18 +5,17 @@ Scans files, computes hashes, skips unchanged files, and updates the database.
 Provides batching, timing logs, and statistics.
 """
 
-import os
 import time
 import hashlib
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple, Callable
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from collections import defaultdict
 
 from scripts.lib.db import Database, get_db_path
 from scripts.lib.ignore import IgnoreManager, load_default_ignore
 from scripts.lib.config import ConfigManager, Config
-from scripts.lib.parser import TreeSitterParser, parse_file, Symbol, Import, Callsite
+from scripts.lib.parser import TreeSitterParser
 
 
 @dataclass

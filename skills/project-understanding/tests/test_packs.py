@@ -16,7 +16,7 @@ import tempfile
 from pathlib import Path
 
 from scripts.lib.packs import (
-    RepoMapPack, ZoomPack, ImpactPack,
+    RepoMapPack, ImpactPack,
     RepoMapPackGenerator, ZoomPackGenerator, ImpactPackGenerator,
     PackSection, repomap, zoom, impact
 )

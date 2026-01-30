@@ -17,9 +17,7 @@ from scripts.lib.tokens import (
     truncate_to_budget,
     calculate_budget_allocation,
     get_budget_status,
-    Section,
     CHARS_PER_TOKEN,
-    CODE_CHARS_PER_TOKEN,
 )
 
 

@@ -8,7 +8,7 @@ LSP (Language Server Protocol) and SCIP (Source Code Index Protocol).
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Protocol, Union
+from typing import Any, Dict, List, Optional
 from enum import Enum
 
 

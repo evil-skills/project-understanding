@@ -141,7 +141,7 @@ class TestLanguageDetection:
     
     def test_get_language_for_extension(self, manager):
         """Should return language for known extension."""
-        config = manager.load()
+        manager.load()
         
         assert manager.get_language_for_extension(".py") == "python"
         assert manager.get_language_for_extension(".js") == "javascript"

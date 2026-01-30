@@ -13,7 +13,7 @@ import json
 import subprocess
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 import threading
 
 from .base import (
@@ -419,7 +419,7 @@ class LSPProvider(SemanticProvider):
         try:
             content = file.read_text()
             lang = None
-            for l, config in self.configs.items():
+            for lang_key, config in self.configs.items():
                 if file.suffix.lower() in config.get("extensions", []):
                     lang = config["language_id"]
                     break

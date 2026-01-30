@@ -13,7 +13,7 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -152,7 +152,6 @@ class JavaScriptModuleParser(ModuleParser):
     
     def _resolve_workspace_pattern(self, root: Path, pattern: str) -> List[Path]:
         """Resolve a workspace glob pattern to actual paths."""
-        import fnmatch
         
         results = []
         # Handle simple glob patterns like "packages/*"
@@ -643,7 +642,6 @@ class RustModuleParser(ModuleParser):
     
     def _resolve_workspace_member(self, root: Path, pattern: str) -> List[Path]:
         """Resolve a workspace member pattern."""
-        import fnmatch
         
         if '*' in pattern:
             base = pattern.split('*')[0].rstrip('/')
@@ -837,7 +835,7 @@ class ModuleDependencyAnalyzer:
             color = colors.get(lang, '#cccccc')
             lines.append(f"    subgraph cluster_{lang} {{")
             lines.append(f"        label=\"{lang.upper()}\";")
-            lines.append(f"        style=filled;")
+            lines.append("        style=filled;")
             lines.append(f"        color=\"{color}40\";")
             
             for module_id in module_ids:

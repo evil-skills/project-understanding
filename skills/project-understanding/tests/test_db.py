@@ -12,10 +12,9 @@ Tests cover:
 
 import pytest
 import tempfile
-import sqlite3
 from pathlib import Path
 
-from scripts.lib.db import Database, get_db_path, DatabaseError
+from scripts.lib.db import Database, get_db_path
 
 
 class TestDatabaseInitialization:

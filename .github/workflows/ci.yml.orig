@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.14']
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: true
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+<<<<<<< HEAD
+        pip install -r project-understanding-skill/scripts/requirements.txt
+        pip install -r project-understanding-skill/skills/project-understanding/requirements.txt
+        pip install pytest ruff
+        pip install skills-ref --ignore-requires-python || echo "Failed to install skills-ref, skipping validation"
+    - name: Lint with ruff
+      run: ruff check project-understanding-skill/skills/project-understanding
+    - name: Validate skill
+      run: |
+        if command -v skills-ref &> /dev/null; then
+          skills-ref validate project-understanding-skill/skills/project-understanding
+        else
+          echo "skills-ref not found, skipping validation"
+        fi
+=======
+        python -m pip install --upgrade pip
+        pip install -r scripts/requirements.txt
+        pip install pytest ruff
+    - name: Lint with ruff
+      run: ruff check .
+>>>>>>> 7d639fc (chore: Another CI fix)
+    - name: Run tests
+      run: |
+        export PYTHONPATH=$PYTHONPATH:$(pwd)/project-understanding-skill/skills/project-understanding
+        pytest project-understanding-skill/skills/project-understanding/tests/ -v

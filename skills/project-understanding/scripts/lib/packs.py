@@ -10,19 +10,15 @@ All generators enforce token budgets and provide structured output
 suitable for LLM consumption.
 """
 
-import os
-import json
-from typing import List, Dict, Any, Optional, Set, Tuple, Union
+from typing import List, Dict, Any, Optional, Tuple, Union
 from pathlib import Path
 from dataclasses import dataclass, field
-from collections import defaultdict
-import fnmatch
 
 from scripts.lib.db import Database, get_db_path
 from scripts.lib.tokens import (
-    estimate_tokens, truncate_to_budget, calculate_budget_allocation
+    estimate_tokens
 )
-from scripts.lib.graph import GraphEngine, create_graph_engine
+from scripts.lib.graph import GraphEngine
 
 
 @dataclass

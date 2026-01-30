@@ -2,9 +2,8 @@
 Test cases for main module.
 """
 
-import pytest
-from src.main import Application, AppConfig, create_app, DataProcessor, calculate_total
-from src.models import Product, User
+from src.main import create_app, DataProcessor, calculate_total
+from src.models import Product
 
 
 class TestApplication:

@@ -301,7 +301,7 @@ class ConfigManager:
     def is_language_enabled(self, language: str) -> bool:
         """Check if a language is enabled for indexing."""
         config = self.load()
-        return language.lower() in [l.lower() for l in config.languages.enabled]
+        return language.lower() in [lang.lower() for lang in config.languages.enabled]
 
 
 def get_config(repo_root: Path, verbose: bool = False) -> Config:

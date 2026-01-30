@@ -12,7 +12,6 @@ Tests cover:
 import pytest
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
 
 try:
     from scripts.lib.parser import (

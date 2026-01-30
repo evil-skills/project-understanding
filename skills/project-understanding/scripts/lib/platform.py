@@ -8,11 +8,10 @@ Provides:
 - Binary release detection
 """
 
-import os
 import sys
 import platform
 from enum import Enum
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from pathlib import Path
 
 

@@ -164,7 +164,6 @@ class GraphEngine:
                 return []
         
         results: Dict[int, GraphNode] = {}
-        visited: Set[int] = set()
         
         # BFS traversal - track (node_id, depth, confidence, path)
         queue: deque[Tuple[int, int, float]] = deque([(symbol_id, 0, 1.0)])

@@ -13,7 +13,6 @@ Options:
 """
 
 import argparse
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -239,7 +238,7 @@ def install_dependencies(offline: bool = False) -> bool:
     cmd.extend(["-r", str(REQUIREMENTS_FILE)])
 
     try:
-        result = subprocess.run(cmd, check=True, capture_output=False)
+        subprocess.run(cmd, check=True, capture_output=False)
         print("✓ Dependencies installed successfully")
         return True
     except subprocess.CalledProcessError as e:

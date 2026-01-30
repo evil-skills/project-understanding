@@ -17,7 +17,7 @@ Truncation Strategy:
 
 import re
 from dataclasses import dataclass
-from typing import List, Tuple, Optional
+from typing import List, Optional
 
 
 # Heuristic: average English text is ~4 characters per token

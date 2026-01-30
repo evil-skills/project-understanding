@@ -453,7 +453,7 @@ class TestRunIndexing:
             # First run
             indexer = Indexer(repo, skill, verbose=False)
             with indexer:
-                stats1 = indexer.run()
+                indexer.run()
             
             # Second run (no changes)
             indexer2 = Indexer(repo, skill, verbose=False)

@@ -13,7 +13,6 @@ Uses the sample-repo fixture which contains files in multiple languages.
 
 import pytest
 import tempfile
-import subprocess
 import sys
 import os
 from pathlib import Path

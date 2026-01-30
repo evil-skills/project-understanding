@@ -10,7 +10,7 @@ Provides analysis of:
 """
 
 import re
-from typing import List, Dict, Any, Optional, Set, Tuple
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
@@ -73,10 +73,10 @@ class FunctionEffects:
         """Format as readable text."""
         lines = [
             f"## {self.function_name}()",
-            f"",
+            "",
             f"**File**: `{self.file_path}:{self.line_start}`",
             f"**Pure**: {'Yes' if self.is_pure else 'No'}",
-            f""
+            ""
         ]
         
         if self.effects:

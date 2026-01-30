@@ -13,7 +13,7 @@ import re
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -70,7 +70,7 @@ class ImpactResult:
         lines = [
             "# Impact Analysis Report",
             "",
-            f"## Summary",
+            "## Summary",
             f"- **Changed Files**: {len(self.changed_files)}",
             f"- **Changed Symbols**: {len(self.changed_symbols)}",
             f"- **Affected Files**: {len(self.affected_files)}",

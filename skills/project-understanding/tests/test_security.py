@@ -31,7 +31,7 @@ class TestPathSandboxing:
             malicious = repo_root / ".." / ".." / "secret.txt"
             
             # Indexer should not follow traversal
-            indexer = Indexer(repo_root, skill_root)
+            Indexer(repo_root, skill_root)
             
             # Verify traversal path is not accessible
             resolved = (repo_root / malicious).resolve()
@@ -149,7 +149,7 @@ class TestInputValidation:
                 # Verify table still exists
                 cursor = db._conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='symbols'")
                 assert cursor.fetchone() is not None
-            except Exception as e:
+            except Exception:
                 # If it fails, it should fail safely without injection
                 pass
             

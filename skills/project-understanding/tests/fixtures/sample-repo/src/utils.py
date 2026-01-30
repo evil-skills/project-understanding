@@ -4,7 +4,7 @@ Utility functions for the application.
 
 import hashlib
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from functools import wraps
 import time
 
@@ -57,7 +57,7 @@ def retry(max_attempts: int = 3, delay: float = 1.0):
             for attempt in range(max_attempts):
                 try:
                     return func(*args, **kwargs)
-                except Exception as e:
+                except Exception:
                     if attempt == max_attempts - 1:
                         raise
                     time.sleep(delay)

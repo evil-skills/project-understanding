@@ -8,22 +8,21 @@ Reference: https://github.com/sourcegraph/scip
 """
 
 import json
-import struct
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional
 import gzip
 
 try:
     # Try to import protobuf if available
-    import google.protobuf.message
-    HAS_PROTOBUF = True
+    import importlib.util
+    HAS_PROTOBUF = importlib.util.find_spec("google.protobuf.message") is not None
 except ImportError:
     HAS_PROTOBUF = False
 
 from .base import (
     SemanticProvider, Position, Range, Location, SymbolInfo,
-    CallSite, ImportInfo, EdgeConfidence, EdgeProvenance
+    CallSite, ImportInfo, EdgeConfidence
 )
 
 
@@ -95,7 +94,7 @@ class SCIPIterator:
                                 if ':' in text:
                                     key, value = text.split(':', 1)
                                     self._metadata[key.strip()] = value.strip()
-                            except:
+                            except Exception:
                                 pass
                 
                 offset += 1024
@@ -231,7 +230,7 @@ class SCIPProvider(SemanticProvider):
             full_path = str(self.repo_root / doc_path) if doc_path else ''
             
             # Parse relationships for call hierarchy
-            relationships = sym_data.get('relationships', [])
+            sym_data.get('relationships', [])
             
             self._symbol_cache[symbol_id] = SymbolInfo(
                 id=symbol_id,
@@ -452,7 +451,7 @@ class SCIPProvider(SemanticProvider):
     def supported_languages(self) -> List[str]:
         """Get languages from SCIP metadata."""
         if self._index:
-            metadata = self._index.get_metadata()
+            self._index.get_metadata()
             # Try to infer from documents
             docs = self._index.get_documents()
             languages = set(doc.language for doc in docs.values())

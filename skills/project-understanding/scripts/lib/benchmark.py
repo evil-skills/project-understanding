@@ -14,7 +14,7 @@ import tempfile
 import statistics
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional, Callable
+from typing import List, Dict, Any, Optional
 from contextlib import contextmanager
 import os
 
@@ -83,13 +83,13 @@ class BenchmarkSuite:
         """Format as markdown report."""
         lines = [
             f"# Benchmark Report: {self.name}",
-            f"",
+            "",
             f"**Timestamp**: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self.timestamp))}",
-            f"",
-            f"## Summary",
-            f"",
-            f"| Metric | Value |",
-            f"|--------|-------|",
+            "",
+            "## Summary",
+            "",
+            "| Metric | Value |",
+            "|--------|-------|",
         ]
         
         summary = self.get_summary()
@@ -98,11 +98,11 @@ class BenchmarkSuite:
                 lines.append(f"| {key} | {value} |")
         
         lines.extend([
-            f"",
-            f"## Detailed Results",
-            f"",
-            f"| Test | Duration (ms) | Memory (MB) |",
-            f"|------|---------------|-------------|",
+            "",
+            "## Detailed Results",
+            "",
+            "| Test | Duration (ms) | Memory (MB) |",
+            "|------|---------------|-------------|",
         ])
         
         for result in self.results:
@@ -218,7 +218,7 @@ class BenchmarkRunner:
             # Benchmark repomap
             start = time.perf_counter()
             gen = RepoMapPackGenerator(test_repo, db)
-            pack = gen.generate(budget_tokens=4000)
+            gen.generate(budget_tokens=4000)
             duration_ms = (time.perf_counter() - start) * 1000
             results.append(BenchmarkResult(
                 name="repomap_query",
@@ -229,7 +229,7 @@ class BenchmarkRunner:
             # Benchmark zoom
             start = time.perf_counter()
             gen = ZoomPackGenerator(test_repo, db)
-            pack = gen.generate("func_0_0", budget_tokens=2000)
+            gen.generate("func_0_0", budget_tokens=2000)
             duration_ms = (time.perf_counter() - start) * 1000
             results.append(BenchmarkResult(
                 name="zoom_query",
@@ -240,7 +240,7 @@ class BenchmarkRunner:
             # Benchmark impact
             start = time.perf_counter()
             gen = ImpactPackGenerator(test_repo, db)
-            pack = gen.generate("func_0_0", depth=2, budget_tokens=3000)
+            gen.generate("func_0_0", depth=2, budget_tokens=3000)
             duration_ms = (time.perf_counter() - start) * 1000
             results.append(BenchmarkResult(
                 name="impact_query",

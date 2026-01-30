@@ -5,14 +5,13 @@ This module provides the core functionality for the application,
 including data processing and API handlers.
 """
 
-import json
 import logging
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from datetime import datetime
 
-from .utils import validate_data, format_output
-from .models import User, Product
+from .utils import validate_data
+from .models import Product
 
 
 logger = logging.getLogger(__name__)
