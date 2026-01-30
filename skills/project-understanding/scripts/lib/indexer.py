@@ -16,6 +16,7 @@ from collections import defaultdict
 from scripts.lib.db import Database, get_db_path
 from scripts.lib.ignore import IgnoreManager, load_default_ignore
 from scripts.lib.config import ConfigManager, Config
+from scripts.lib.parser import TreeSitterParser, parse_file, Symbol, Import, Callsite
 
 
 @dataclass
@@ -114,6 +115,7 @@ class Indexer:
         self.ignore_manager: Optional[IgnoreManager] = None
         self.config_manager: Optional[ConfigManager] = None
         self.config: Optional[Config] = None
+        self.parser: Optional[TreeSitterParser] = None
         
         # Timing logs
         self.timings: Dict[str, List[float]] = defaultdict(list)
@@ -123,20 +125,22 @@ class Indexer:
         if self.verbose:
             print(f"[Indexer] {message}")
     
-    def _time(self, operation: str) -> Callable:
+    def _time(self, operation: str):
         """Context manager for timing operations."""
-        class Timer:
-            def __enter__(timer):
-                timer.start = time.time()
-                return timer
-            
-            def __exit__(timer, *args):
-                elapsed = time.time() - timer.start
+        from contextlib import contextmanager
+        
+        @contextmanager
+        def timer_cm():
+            start = time.time()
+            try:
+                yield
+            finally:
+                elapsed = time.time() - start
                 self.timings[operation].append(elapsed)
                 if self.verbose:
                     print(f"[Timer] {operation}: {elapsed:.3f}s")
         
-        return Timer()
+        return timer_cm()
     
     def initialize(self) -> "Indexer":
         """Initialize all components."""
@@ -164,6 +168,10 @@ class Indexer:
             self.db = Database(db_path, self.verbose)
             self.db.connect()
             self.db.begin_batch(self.batch_size)
+            
+            # Initialize parser
+            queries_dir = self.skill_root / 'scripts' / 'lib' / 'queries'
+            self.parser = TreeSitterParser(queries_dir)
             
             self._log("Initialization complete")
         
@@ -373,8 +381,8 @@ class Indexer:
         """
         Parse a file and extract symbols.
         
-        This is a placeholder that will be replaced with tree-sitter parsing.
-        For now, returns basic file-level information.
+        Uses Tree-sitter parser for language-aware symbol extraction.
+        Falls back to basic file info if parsing fails.
         
         Args:
             file_info: File information
@@ -382,20 +390,131 @@ class Indexer:
         Returns:
             List of symbol dictionaries
         """
-        # TODO: Replace with tree-sitter parser
-        # For now, just return a single symbol for the file
-        return [{
-            'name': file_info.path.stem,
-            'kind': 'file',
-            'line_start': 1,
-            'line_end': None,
-            'column_start': None,
-            'column_end': None,
-            'signature': None,
-            'docstring': None,
-            'parent_name': None,
-            'calls': []
-        }]
+        with self._time("parse_file"):
+            if not self.parser:
+                # Fallback to basic file info if parser not available
+                return [{
+                    'name': file_info.path.stem,
+                    'kind': 'file',
+                    'line_start': 1,
+                    'line_end': None,
+                    'column_start': None,
+                    'column_end': None,
+                    'signature': None,
+                    'docstring': None,
+                    'parent_name': None,
+                    'calls': []
+                }]
+            
+            try:
+                result = self.parser.parse_file(file_info.path)
+                
+                if result is None:
+                    # File type not supported or parsing failed
+                    return [{
+                        'name': file_info.path.stem,
+                        'kind': 'file',
+                        'line_start': 1,
+                        'line_end': None,
+                        'column_start': None,
+                        'column_end': None,
+                        'signature': None,
+                        'docstring': None,
+                        'parent_name': None,
+                        'calls': []
+                    }]
+                
+                if result.errors:
+                    for error in result.errors:
+                        self._log(f"Parse warning for {file_info.relative_path}: {error}")
+                
+                # Convert symbols to dictionary format
+                symbols = []
+                for sym in result.symbols:
+                    symbols.append({
+                        'name': sym.name,
+                        'kind': sym.kind,
+                        'line_start': sym.line_start,
+                        'line_end': sym.line_end,
+                        'column_start': sym.column_start,
+                        'column_end': sym.column_end,
+                        'signature': sym.signature,
+                        'docstring': sym.docstring,
+                        'parent_name': sym.parent_name,
+                        'calls': sym.calls
+                    })
+                
+                # Store imports and callsites for edge creation
+                if self.db and file_info.relative_path:
+                    file_id = self.db.get_file(file_info.relative_path)
+                    if file_id and isinstance(file_id, dict):
+                        file_id_val = file_id.get('id')
+                        if file_id_val:
+                            # Store imports as edges
+                            for imp in result.imports:
+                                if imp.module or imp.name:
+                                    self.db.add_edge(
+                                        source_id=0,  # File-level import
+                                        target_id=0,
+                                        kind='IMPORTS',
+                                        file_id=file_id_val,
+                                        metadata={
+                                            'module': imp.module,
+                                            'name': imp.name,
+                                            'alias': imp.alias,
+                                            'line': imp.line,
+                                            'raw': imp.raw_text[:200] if imp.raw_text else None
+                                        }
+                                    )
+                            
+                            # Store callsites
+                            for cs in result.callsites:
+                                self.db.add_edge(
+                                    source_id=0,
+                                    target_id=0,
+                                    kind='CALLS',
+                                    file_id=file_id_val,
+                                    metadata={
+                                        'callee': cs.callee_text,
+                                        'line': cs.line,
+                                        'column': cs.column,
+                                        'scope': cs.scope_symbol_id,
+                                        'confidence': cs.confidence
+                                    }
+                                )
+                
+                # If no symbols found, add file-level symbol
+                if not symbols:
+                    symbols = [{
+                        'name': file_info.path.stem,
+                        'kind': 'file',
+                        'line_start': 1,
+                        'line_end': None,
+                        'column_start': None,
+                        'column_end': None,
+                        'signature': None,
+                        'docstring': None,
+                        'parent_name': None,
+                        'calls': []
+                    }]
+                
+                return symbols
+                
+            except Exception as e:
+                self._log(f"Parse error for {file_info.relative_path}: {e}")
+                # Return basic file info on error
+                return [{
+                    'name': file_info.path.stem,
+                    'kind': 'file',
+                    'line_start': 1,
+                    'line_end': None,
+                    'column_start': None,
+                    'column_end': None,
+                    'signature': None,
+                    'docstring': None,
+                    'parent_name': None,
+                    'calls': []
+                }]
     
     def run(self, force: bool = False) -> IndexStats:
         """

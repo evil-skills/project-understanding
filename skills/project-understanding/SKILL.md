@@ -10,8 +10,9 @@ description: |
   and assess the impact of changes before implementation.
 license: MIT
 compatibility: |
-  Requires Python 3.10+; optional git for version control integration;
-  local filesystem access required; optional internet for bootstrap dependencies
+  Requires Python 3.10+, tree-sitter and tree-sitter-languages packages;
+  System deps: C compiler (for building tree-sitter if prebuilt wheels unavailable);
+  Optional: git for version control integration; local filesystem access required
 metadata:
   author: project-understanding-skill
   version: "0.1.0"

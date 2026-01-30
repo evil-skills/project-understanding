@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS edges (
     target_id INTEGER NOT NULL,
     kind TEXT NOT NULL,
     file_id INTEGER NOT NULL,
+    metadata TEXT,  -- JSON-encoded metadata for import/call info
     FOREIGN KEY (source_id) REFERENCES symbols(id) ON DELETE CASCADE,
     FOREIGN KEY (target_id) REFERENCES symbols(id) ON DELETE CASCADE,
     FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
@@ -396,20 +397,29 @@ class Database:
     
     # Edge operations
     
-    def add_edge(self, source_id: int, target_id: int, kind: str, file_id: int) -> int:
+    def add_edge(self, source_id: int, target_id: int, kind: str, file_id: int,
+                 metadata: Optional[Dict[str, Any]] = None) -> int:
         """
         Add a relationship edge between symbols.
+        
+        Args:
+            source_id: Source symbol ID
+            target_id: Target symbol ID  
+            kind: Edge type (call, import, inherit, etc.)
+            file_id: File where edge occurs
+            metadata: Optional JSON-serializable metadata dict
         
         Returns:
             Edge ID
         """
+        metadata_json = json.dumps(metadata) if metadata else None
         cursor = self._conn.execute(
             """
-            INSERT INTO edges (source_id, target_id, kind, file_id)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO edges (source_id, target_id, kind, file_id, metadata)
+            VALUES (?, ?, ?, ?, ?)
             RETURNING id
             """,
-            (source_id, target_id, kind, file_id)
+            (source_id, target_id, kind, file_id, metadata_json)
         )
         
         self._transaction_count += 1
