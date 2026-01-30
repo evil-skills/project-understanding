@@ -305,6 +305,43 @@ class TreeSitterParser:
                         line=line_num,
                         confidence=confidence
                     ))
+
+        elif language == 'cpp':
+            # Basic C++ regexes
+            func_re = re.compile(r'(?:[\w:<>]+\s+)+([a-zA-Z_]\w*)\s*\([^;]*\)\s*\{')
+            class_re = re.compile(r'(?:class|struct)\s+([a-zA-Z_]\w*)')
+            namespace_re = re.compile(r'namespace\s+([a-zA-Z_]\w*)')
+            import_re = re.compile(r'#include\s+["<]([^">]+)[">]')
+            call_re = re.compile(r'([a-zA-Z_]\w*(?:::[a-zA-Z_]\w*|->[a-zA-Z_]\w*|\.[a-zA-Z_]\w*)*)\s*\(')
+
+            for i, line in enumerate(lines):
+                line_num = i + 1
+                
+                # Namespace
+                m = namespace_re.search(line)
+                if m:
+                    symbols.append(Symbol(name=m.group(1), kind='namespace', line_start=line_num, column_start=line.find(m.group(1)), signature=line.strip()))
+                
+                # Class/Struct
+                m = class_re.search(line)
+                if m:
+                    symbols.append(Symbol(name=m.group(1), kind='class', line_start=line_num, column_start=line.find(m.group(1)), signature=line.strip()))
+                
+                # Functions
+                m = func_re.search(line)
+                if m:
+                    symbols.append(Symbol(name=m.group(1), kind='function', line_start=line_num, column_start=line.find(m.group(1)), signature=line.strip()))
+
+                # Imports
+                m = import_re.search(line)
+                if m:
+                    imports.append(Import(module=m.group(1), name=None, alias=None, line=line_num, raw_text=line.strip()))
+
+                # Calls
+                for call_match in call_re.finditer(line):
+                    callee = call_match.group(1)
+                    if callee not in ['if', 'while', 'for', 'switch', 'return']:
+                        callsites.append(Callsite(callee_text=callee, line=line_num, confidence=0.5))
                     
         elif language in ['javascript', 'typescript']:
             # Basic JS/TS regexes

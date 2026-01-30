@@ -27,6 +27,7 @@ class IndexStats:
     files_unchanged: int = 0
     files_deleted: int = 0
     files_error: int = 0
+    failed_files: List[Dict[str, str]] = field(default_factory=list)
     symbols_added: int = 0
     symbols_removed: int = 0
     edges_added: int = 0
@@ -66,12 +67,22 @@ class IndexStats:
             f"  Files unchanged: {self.files_unchanged}",
             f"  Files deleted: {self.files_deleted}",
             f"  Files with errors: {self.files_error}",
+        ]
+        
+        if self.failed_files:
+            lines.append("  Failed files:")
+            for f in self.failed_files[:10]:
+                lines.append(f"    - {f['path']}: {f['error']}")
+            if len(self.failed_files) > 10:
+                lines.append("    - ...")
+                
+        lines.extend([
             f"  Symbols added: {self.symbols_added}",
             f"  Symbols removed: {self.symbols_removed}",
             f"  Edges added: {self.edges_added}",
             f"  Edges removed: {self.edges_removed}",
             f"  Duration: {self.duration:.2f}s"
-        ]
+        ])
         return '\n'.join(lines)
 
 
@@ -227,9 +238,9 @@ class Indexer:
             
             files = []
             for path in candidates:
+                rel_path = str(path.relative_to(self.repo_root))
                 try:
                     stat = path.stat()
-                    rel_path = str(path.relative_to(self.repo_root))
                     
                     files.append(FileInfo(
                         path=path,
@@ -241,6 +252,7 @@ class Indexer:
                 except OSError as e:
                     self._log(f"Error stat-ing {path}: {e}")
                     self.stats.files_error += 1
+                    self.stats.failed_files.append({"path": rel_path, "error": str(e)})
             
             self._log(f"Found {len(files)} candidate files")
             self.stats.files_scanned = len(files)
@@ -374,6 +386,7 @@ class Indexer:
         except Exception as e:
             self._log(f"Error indexing {file_info.relative_path}: {e}")
             self.stats.files_error += 1
+            self.stats.failed_files.append({"path": file_info.relative_path, "error": str(e)})
             return False
     
     def parse_file(self, file_info: FileInfo) -> List[Dict[str, Any]]:

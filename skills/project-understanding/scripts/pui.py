@@ -532,7 +532,16 @@ Examples:
     # zoom subcommand
     zoom_parser = subparsers.add_parser(
         "zoom",
-        help="Print ZoomPack for a file/symbol"
+        help="Print ZoomPack for a file/symbol",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="""
+Analyze a specific file or symbol in detail. 
+
+Examples:
+  pui zoom src/main.py
+  pui zoom MyClass
+  pui zoom my_function
+"""
     )
     zoom_parser.add_argument(
         "target",

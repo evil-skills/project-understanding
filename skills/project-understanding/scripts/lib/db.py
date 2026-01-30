@@ -16,7 +16,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # Schema definition
 CREATE_TABLES_SQL = """
@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS files (
     size INTEGER NOT NULL,
     content_hash TEXT NOT NULL,
     indexed_at INTEGER NOT NULL,
-    language TEXT
+    language TEXT,
+    lang TEXT  -- Alias for language to support architecture command
 );
 
 -- Symbols table: stores symbol definitions
@@ -55,6 +56,7 @@ CREATE TABLE IF NOT EXISTS edges (
     target_id INTEGER NOT NULL,
     kind TEXT NOT NULL,
     file_id INTEGER NOT NULL,
+    confidence REAL DEFAULT 1.0,
     metadata TEXT,  -- JSON-encoded metadata for import/call info
     FOREIGN KEY (source_id) REFERENCES symbols(id) ON DELETE CASCADE,
     FOREIGN KEY (target_id) REFERENCES symbols(id) ON DELETE CASCADE,
@@ -229,6 +231,22 @@ class Database:
         """Migrate schema from one version to another."""
         self._log(f"Migrating schema from {from_version} to {to_version}")
         
+        if from_version < 2:
+            self._log("Migration: Adding 'lang' column to 'files' table")
+            try:
+                self.conn.execute("ALTER TABLE files ADD COLUMN lang TEXT")
+                self.conn.execute("UPDATE files SET lang = language")
+            except sqlite3.OperationalError as e:
+                if "duplicate column name" not in str(e):
+                    raise
+            
+            self._log("Migration: Adding 'confidence' column to 'edges' table")
+            try:
+                self.conn.execute("ALTER TABLE edges ADD COLUMN confidence REAL DEFAULT 1.0")
+            except sqlite3.OperationalError as e:
+                if "duplicate column name" not in str(e):
+                    raise
+        
         # Add migrations here as needed
         # For now, just update version number
         self._set_meta("schema_version", str(to_version))
@@ -278,17 +296,18 @@ class Database:
         
         cursor = self.conn.execute(
             """
-            INSERT INTO files (path, mtime, size, content_hash, indexed_at, language)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO files (path, mtime, size, content_hash, indexed_at, language, lang)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(path) DO UPDATE SET
                 mtime = excluded.mtime,
                 size = excluded.size,
                 content_hash = excluded.content_hash,
                 indexed_at = excluded.indexed_at,
-                language = excluded.language
+                language = excluded.language,
+                lang = excluded.lang
             RETURNING id
             """,
-            (path, mtime, size, content_hash, indexed_at, language)
+            (path, mtime, size, content_hash, indexed_at, language, language)
         )
         
         file_id = cursor.fetchone()[0]

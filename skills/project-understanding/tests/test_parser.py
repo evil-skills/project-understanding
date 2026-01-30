@@ -887,6 +887,77 @@ line 6
             func = next((s for s in result.symbols if s.name == "my_func"), None)
             assert func is not None
             assert func.line_start == 3
+
+class TestCPPParsing:
+    """Tests for C++ language parsing."""
+    
+    @pytest.fixture
+    def parser(self):
+        """Create parser instance."""
+        return TreeSitterParser()
+    
+    def test_parse_cpp_function(self, parser):
+        """Should extract C++ functions."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_file = Path(tmpdir) / "test.cpp"
+            test_file.write_text("""
+#include <iostream>
+
+void hello_world() {
+    std::cout << "Hello" << std::endl;
+}
+
+int main(int argc, char** argv) {
+    hello_world();
+    return 0;
+}
+""")
+            
+            result = parser.parse_file(test_file)
+            
+            assert result is not None
+            assert result.language == "cpp"
+            
+            symbols = {s.name: s for s in result.symbols}
+            assert "hello_world" in symbols
+            assert "main" in symbols
+            
+            # Check imports
+            imports = {i.module for i in result.imports}
+            assert "iostream" in imports
+            
+            # Check calls
+            calls = {c.callee_text for c in result.callsites}
+            assert "hello_world" in calls
+
+    def test_parse_cpp_class(self, parser):
+        """Should extract C++ classes and structs."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_file = Path(tmpdir) / "test.hpp"
+            test_file.write_text("""
+namespace core {
+    class Logger {
+    public:
+        void log(const std::string& msg);
+    };
+
+    struct Config {
+        int timeout;
+    };
+}
+""")
+            
+            result = parser.parse_file(test_file)
+            
+            assert result is not None
+            symbols = {s.name: s for s in result.symbols}
+            assert "core" in symbols
+            assert "Logger" in symbols
+            assert "Config" in symbols
+            
+            assert symbols["core"].kind == "namespace"
+            assert symbols["Logger"].kind == "class"
+            assert symbols["Config"].kind == "class"
     
     def test_symbol_column_numbers(self, parser):
         """Should extract column positions."""
