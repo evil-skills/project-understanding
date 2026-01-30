@@ -293,6 +293,72 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
     return 0
 
 
+
+def cmd_architecture(args: argparse.Namespace) -> int:
+    """Analyze repository architecture."""
+    from scripts.lib.architecture import analyze_architecture
+    
+    repo_root = Path.cwd()
+    
+    # Load files from repository
+    files_content = {}
+    for ext in ["*.py", "*.js", "*.ts", "*.go", "*.rs"]:
+        for file_path in repo_root.rglob(ext):
+            try:
+                rel_path = str(file_path.relative_to(repo_root))
+                files_content[rel_path] = file_path.read_text()
+            except Exception:
+                pass
+    
+    pack = analyze_architecture(repo_root, files_content)
+    
+    if args.format == "json":
+        import json
+        print(json.dumps(pack.to_dict(), indent=2))
+    else:
+        print(pack.to_text())
+    
+    return 0
+
+
+def cmd_workspace(args: argparse.Namespace) -> int:
+    """Manage multi-repository workspaces."""
+    from scripts.lib.workspace import WorkspaceManager, init_workspace
+    from pathlib import Path
+    
+    if args.workspace_command == "init":
+        repo_paths = [Path(p) for p in args.repos]
+        config = init_workspace(args.name, repo_paths)
+        print(f"Created workspace '{args.name}' with {len(config.repos)} repositories")
+        return 0
+    
+    elif args.workspace_command == "graph":
+        manager = WorkspaceManager(Path(".pui-workspace.json"))
+        if not manager.config:
+            print("No workspace configured. Run 'pui workspace init' first.")
+            return 1
+        
+        graph = manager.build_unified_graph()
+        print(graph.to_text())
+        return 0
+    
+    elif args.workspace_command == "find":
+        manager = WorkspaceManager(Path(".pui-workspace.json"))
+        if not manager.config:
+            print("No workspace configured. Run 'pui workspace init' first.")
+            return 1
+        
+        results = manager.find_symbol_across_repos(args.symbol)
+        if results:
+            print(f"Found '{args.symbol}' in {len(results)} locations:")
+            for r in results:
+                print(f"  {r['repo']}: {r['name']} ({r['kind']}) in {r['file']}:{r['line']}")
+        else:
+            print(f"Symbol '{args.symbol}' not found in workspace")
+        return 0
+    
+    return 0
+
 def main(argv: list[str] | None = None) -> int:
     """Main entrypoint for the PUI CLI."""
     parser = argparse.ArgumentParser(
@@ -543,6 +609,62 @@ Examples:
         help="Output file (default: stdout)"
     )
     benchmark_parser.set_defaults(func=cmd_benchmark)
+    
+    # architecture subcommand
+    arch_parser = subparsers.add_parser(
+        "architecture",
+        help="Analyze repository architecture and frameworks"
+    )
+    arch_parser.add_argument(
+        "--format", "-f",
+        choices=["markdown", "json"],
+        default="markdown",
+        help="Output format (default: markdown)"
+    )
+    arch_parser.set_defaults(func=cmd_architecture)
+    
+    # workspace subcommand
+    workspace_parser = subparsers.add_parser(
+        "workspace",
+        help="Manage multi-repository workspaces"
+    )
+    workspace_subparsers = workspace_parser.add_subparsers(
+        dest="workspace_command",
+        help="Workspace commands"
+    )
+    
+    # workspace init
+    ws_init_parser = workspace_subparsers.add_parser(
+        "init",
+        help="Initialize a new workspace"
+    )
+    ws_init_parser.add_argument(
+        "name",
+        help="Workspace name"
+    )
+    ws_init_parser.add_argument(
+        "repos",
+        nargs="+",
+        help="Repository paths to include"
+    )
+    
+    # workspace graph
+    ws_graph_parser = workspace_subparsers.add_parser(
+        "graph",
+        help="Show unified workspace graph"
+    )
+    
+    # workspace find
+    ws_find_parser = workspace_subparsers.add_parser(
+        "find",
+        help="Find symbol across all workspace repos"
+    )
+    ws_find_parser.add_argument(
+        "symbol",
+        help="Symbol name to search for"
+    )
+    
+    workspace_parser.set_defaults(func=cmd_workspace)
     
     args = parser.parse_args(argv)
     
