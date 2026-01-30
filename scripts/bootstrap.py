@@ -266,13 +266,6 @@ except ImportError as e:
     print(f"✗ Failed to import tree-sitter: {e}")
     sys.exit(1)
 
-try:
-    from tree_sitter_languages import get_language, get_parser
-    print("✓ tree-sitter-languages imported successfully")
-except ImportError as e:
-    print(f"✗ Failed to import tree-sitter-languages: {e}")
-    sys.exit(1)
-
 print("All dependencies verified!")
 """
     
