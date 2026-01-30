@@ -1,5 +1,5 @@
-# Default Ignore Patterns
-# These patterns are merged with .gitignore for file discovery
+# Default ignore patterns for Project Understanding Skill
+# Copy this to .puiignore and customize as needed
 
 # Version control
 .git
