@@ -175,3 +175,7 @@ cython_debug/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Exception for scripts/lib
+!skills/project-understanding/scripts/lib/
+!skills/project-understanding/scripts/lib/**
