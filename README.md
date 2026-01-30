@@ -108,6 +108,20 @@ project-understanding impact --symbol MyFunction
 **Optional (for enhanced parsing):**
 - Tree-sitter language grammars (auto-installed on first use)
 
+### Agent Skill Activation Compatibility
+
+| Platform | Activation | Status | Notes |
+|----------|-----------|--------|-------|
+| **Claude Code** | `project-understanding` | Supported | Full feature support |
+| **OpenCode** | `opencode skill project-understanding` | Supported | Native integration |
+| **Gemini CLI** | `@project-understanding` | Supported | Basic functionality |
+
+**Activation Keywords:**
+- "understand this codebase"
+- "what does this project do"
+- "analyze repository structure"
+- "show me the architecture"
+
 ## Features
 
 - **Repository Map**: Get a high-level view of your codebase structure, organized by directories and modules

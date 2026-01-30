@@ -1,0 +1,73 @@
+name: CI Performance Smoke Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  performance-smoke-test:
+    name: Performance Smoke Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r scripts/requirements.txt
+        pip install pytest psutil
+    
+    - name: Create test repository
+      run: |
+        mkdir -p /tmp/test-repo/src
+        for i in $(seq 1 50); do
+          echo "def func_${i}(): return ${i}" > /tmp/test-repo/src/module_$i.py
+        done
+    
+    - name: Run benchmarks
+      run: |
+        cd skills/project-understanding
+        python -c "
+import sys
+from scripts.lib.benchmark import BenchmarkRunner
+from pathlib import Path
+import tempfile
+
+with tempfile.TemporaryDirectory() as tmpdir:
+    test_repo = Path(tmpdir) / 'test'
+    test_repo.mkdir()
+    src = test_repo / 'src'
+    src.mkdir()
+    for i in range(20):
+        (src / f'module_{i}.py').write_text(f'def func_{i}(): return {i}')
+    
+    runner = BenchmarkRunner(test_repo, Path.cwd())
+    suite = runner.run_all_benchmarks()
+    print(suite.to_markdown())
+    
+    passed = True
+    for result in suite.results:
+        if result.duration_ms > 30000:
+            print(f'FAIL: {result.name} too slow')
+            passed = False
+    
+    if not passed:
+        sys.exit(1)
+    print('All benchmarks passed!')
+"
+    
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: benchmark-results
+        path: benchmark-results.json
+        retention-days: 30
