@@ -87,6 +87,7 @@ class LanguageSupport:
         'typescript': ['.ts', '.tsx'],
         'go': ['.go'],
         'rust': ['.rs'],
+        'cpp': ['.cpp', '.cc', '.cxx', '.h', '.hpp', '.c'],
     }
     
     def __init__(self, queries_dir: Optional[Path] = None):
@@ -147,7 +148,7 @@ class LanguageSupport:
                 raise RuntimeError(f"Failed to load parser for '{language}': {e}")
         return self._parsers[language]
     
-    def _load_query(self, language: str, query_name: str) -> Optional[Query]:
+    def _load_query(self, language: str, query_name: str) -> Optional[Any]:
         """Load a query from .scm file."""
         if language not in self._queries:
             self._queries[language] = {}
@@ -160,6 +161,8 @@ class LanguageSupport:
             try:
                 query_text = query_path.read_text()
                 lang = self._load_language(language)
+                if not TREE_SITTER_AVAILABLE:
+                    return None
                 self._queries[language][query_name] = Query(lang, query_text)
             except Exception:
                 # Log error but don't crash - some queries may not be available
@@ -385,7 +388,7 @@ class TreeSitterParser:
         
         if query:
             root_node = tree.root_node
-            captures = query.captures(root_node)
+            captures = query.captures(root_node) # type: ignore
             
             # Group captures by node
             node_captures: Dict[int, Dict[str, Any]] = {}
@@ -542,7 +545,7 @@ class TreeSitterParser:
         query = self.language_support._load_query(language, 'imports')
         
         if query:
-            captures = query.captures(tree.root_node)
+            captures = query.captures(tree.root_node) # type: ignore
             
             for capture in captures:
                 node = capture[0]
@@ -623,6 +626,16 @@ class TreeSitterParser:
                 else:
                     module = rest.strip()
         
+        elif language == 'cpp':
+            # Handle: #include "file.h" or #include <lib.h>
+            # The raw_text will be the full #include line or the captured path
+            match = re.search(r'#include\s+["<]([^">]+)[">]', raw_text)
+            if match:
+                module = match.group(1)
+            elif not raw_text.startswith('#'):
+                # If we captured just the path
+                module = raw_text.strip('">< ')
+        
         return module, name, alias
     
     def _fallback_import_extraction(self, tree: Tree, language: str, content: str) -> List[Import]:
@@ -678,7 +691,7 @@ class TreeSitterParser:
         query = self.language_support._load_query(language, 'calls')
         
         if query:
-            captures = query.captures(tree.root_node)
+            captures = query.captures(tree.root_node) # type: ignore
             
             for capture in captures:
                 node = capture[0]

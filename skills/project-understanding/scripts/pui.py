@@ -46,7 +46,7 @@ def cmd_index(args: argparse.Namespace) -> int:
                 indexer.ignore_manager.add_exclude(pattern)
         
         # Run indexing
-        stats = indexer.run(force=args.force)
+        stats = indexer.run(force=getattr(args, 'force', False) or getattr(args, 'index_subcommand', None) == 'build')
         
         # Print stats if requested
         if args.stats:
@@ -77,7 +77,11 @@ def cmd_repomap(args: argparse.Namespace) -> int:
     budget = resolve_budget(args.max_tokens, "repomap", config_budget=8000)
     
     with RepoMapPackGenerator(repo_root) as gen:
-        pack = gen.generate(budget_tokens=budget, focus=getattr(args, 'focus', None))
+        pack = gen.generate(
+            budget_tokens=budget, 
+            focus=getattr(args, 'focus', None),
+            depth=getattr(args, 'depth', 2)
+        )
         
         if args.format == "json":
             import json
@@ -319,28 +323,40 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
 def cmd_architecture(args: argparse.Namespace) -> int:
     """Analyze repository architecture."""
     from scripts.lib.architecture import analyze_architecture
+    from scripts.lib.db import Database, get_db_path
     
     repo_root = Path.cwd()
+    db_path = get_db_path(repo_root)
+    db = Database(db_path)
+    db.connect()
     
-    # Load files from repository
-    files_content = {}
-    for ext in ["*.py", "*.js", "*.ts", "*.go", "*.rs"]:
-        for file_path in repo_root.rglob(ext):
-            try:
-                rel_path = str(file_path.relative_to(repo_root))
-                files_content[rel_path] = file_path.read_text()
-            except Exception:
-                pass
-    
-    pack = analyze_architecture(repo_root, files_content)
-    
-    if args.format == "json":
-        import json
-        print(json.dumps(pack.to_dict(), indent=2))
-    else:
-        print(pack.to_text())
-    
-    return 0
+    try:
+        # Get detected languages from index
+        languages = []
+        cursor = db._conn.execute("SELECT DISTINCT lang FROM files")
+        languages = [row[0] for row in cursor.fetchall()]
+        
+        # Load files from repository for analysis
+        files_content = {}
+        for ext in ["*.py", "*.js", "*.ts", "*.go", "*.rs", "*.cpp", "*.h", "*.hpp", "*.cc", "*.cxx", "*.c"]:
+            for file_path in repo_root.rglob(ext):
+                try:
+                    rel_path = str(file_path.relative_to(repo_root))
+                    files_content[rel_path] = file_path.read_text()
+                except Exception:
+                    pass
+        
+        pack = analyze_architecture(repo_root, files_content, languages)
+        
+        if args.format == "json":
+            import json
+            print(json.dumps(pack.to_dict(), indent=2))
+        else:
+            print(pack.to_text())
+        
+        return 0
+    finally:
+        db.close()
 
 
 def cmd_workspace(args: argparse.Namespace) -> int:
@@ -431,29 +447,35 @@ Examples:
         "index",
         help="Build/update index database"
     )
-    index_parser.add_argument(
-        "--force", "-f",
-        action="store_true",
-        help="Force full reindex (ignore existing)"
-    )
-    index_parser.add_argument(
-        "--include", "-i",
-        action="append",
-        default=[],
-        help="Include pattern (can be specified multiple times)"
-    )
-    index_parser.add_argument(
-        "--exclude", "-e",
-        action="append",
-        default=[],
-        help="Exclude pattern (can be specified multiple times)"
-    )
-    index_parser.add_argument(
-        "--stats", "-s",
-        action="store_true",
-        help="Show indexing statistics"
-    )
+    index_subparsers = index_parser.add_subparsers(dest="index_subcommand")
+    index_build_parser = index_subparsers.add_parser("build", help="Force rebuild index")
+    index_update_parser = index_subparsers.add_parser("update", help="Incremental update (default)")
+    
+    for p in [index_parser, index_build_parser, index_update_parser]:
+        p.add_argument(
+            "--force", "-f",
+            action="store_true",
+            help="Force full reindex (ignore existing)"
+        )
+        p.add_argument(
+            "--include", "-i",
+            action="append",
+            default=[],
+            help="Include pattern (can be specified multiple times)"
+        )
+        p.add_argument(
+            "--exclude", "-e",
+            action="append",
+            default=[],
+            help="Exclude pattern (can be specified multiple times)"
+        )
+        p.add_argument(
+            "--stats", "-s",
+            action="store_true",
+            help="Show indexing statistics"
+        )
     index_parser.set_defaults(func=cmd_index)
+
     
     # repomap subcommand
     repomap_parser = subparsers.add_parser(
@@ -475,6 +497,12 @@ Examples:
     repomap_parser.add_argument(
         "--focus",
         help="Focus on specific subdirectory"
+    )
+    repomap_parser.add_argument(
+        "--depth", "-d",
+        type=int,
+        default=2,
+        help="Directory tree depth (default: 2)"
     )
     repomap_parser.set_defaults(func=cmd_repomap)
     

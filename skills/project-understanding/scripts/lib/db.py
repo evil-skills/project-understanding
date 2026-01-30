@@ -179,15 +179,22 @@ class Database:
             self.rollback()
         self.close()
     
+    @property
+    def conn(self) -> sqlite3.Connection:
+        """Get database connection, raising error if not connected."""
+        if self._conn is None:
+            raise DatabaseError("Database not connected")
+        return self._conn
+
     def _init_schema(self) -> None:
         """Initialize database schema."""
         self._log("Initializing schema...")
         
         # Create tables and indices
-        self._conn.executescript(CREATE_TABLES_SQL)
+        self.conn.executescript(CREATE_TABLES_SQL)
         
         # Create FTS tables
-        self._conn.executescript(CREATE_FTS_SQL)
+        self.conn.executescript(CREATE_FTS_SQL)
         
         # Check/update schema version
         current_version = self._get_schema_version()
@@ -198,12 +205,12 @@ class Database:
         elif current_version != SCHEMA_VERSION:
             self._migrate_schema(current_version, SCHEMA_VERSION)
         
-        self._conn.commit()
+        self.conn.commit()
     
     def _get_schema_version(self) -> int:
         """Get current schema version from database."""
         try:
-            cursor = self._conn.execute(
+            cursor = self.conn.execute(
                 "SELECT value FROM meta WHERE key = 'schema_version'"
             )
             row = cursor.fetchone()
@@ -213,7 +220,7 @@ class Database:
     
     def _set_meta(self, key: str, value: str) -> None:
         """Set metadata value."""
-        self._conn.execute(
+        self.conn.execute(
             "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
             (key, value)
         )
@@ -231,7 +238,7 @@ class Database:
         """Commit transaction if batch size reached or forced."""
         if force or self._transaction_count >= self._batch_size:
             if self._transaction_count > 0:
-                self._conn.commit()
+                self.conn.commit()
                 self._log(f"Committed {self._transaction_count} operations")
                 self._transaction_count = 0
     
@@ -253,7 +260,7 @@ class Database:
     # File operations
     
     def add_file(self, path: str, mtime: int, size: int, content_hash: str, 
-                 language: Optional[str] = None) -> int:
+                  language: Optional[str] = None) -> int:
         """
         Add or update a file record.
         
@@ -269,7 +276,7 @@ class Database:
         """
         indexed_at = int(datetime.now().timestamp())
         
-        cursor = self._conn.execute(
+        cursor = self.conn.execute(
             """
             INSERT INTO files (path, mtime, size, content_hash, indexed_at, language)
             VALUES (?, ?, ?, ?, ?, ?)
@@ -292,7 +299,7 @@ class Database:
     
     def get_file(self, path: str) -> Optional[Dict[str, Any]]:
         """Get file record by path."""
-        cursor = self._conn.execute(
+        cursor = self.conn.execute(
             "SELECT * FROM files WHERE path = ?",
             (path,)
         )
@@ -301,7 +308,7 @@ class Database:
     
     def get_file_by_id(self, file_id: int) -> Optional[Dict[str, Any]]:
         """Get file record by ID."""
-        cursor = self._conn.execute(
+        cursor = self.conn.execute(
             "SELECT * FROM files WHERE id = ?",
             (file_id,)
         )
@@ -310,7 +317,7 @@ class Database:
     
     def delete_file(self, path: str) -> bool:
         """Delete file and all associated symbols/edges."""
-        cursor = self._conn.execute(
+        cursor = self.conn.execute(
             "DELETE FROM files WHERE path = ?",
             (path,)
         )
@@ -320,7 +327,7 @@ class Database:
     
     def get_all_files(self) -> List[Dict[str, Any]]:
         """Get all indexed files."""
-        cursor = self._conn.execute("SELECT * FROM files")
+        cursor = self.conn.execute("SELECT * FROM files")
         return [dict(row) for row in cursor.fetchall()]
     
     # Symbol operations
@@ -335,7 +342,7 @@ class Database:
         Returns:
             Symbol ID
         """
-        cursor = self._conn.execute(
+        cursor = self.conn.execute(
             """
             INSERT INTO symbols 
             (file_id, name, kind, line_start, line_end, column_start, column_end,
@@ -354,7 +361,7 @@ class Database:
     
     def get_symbols_in_file(self, file_id: int) -> List[Dict[str, Any]]:
         """Get all symbols defined in a file."""
-        cursor = self._conn.execute(
+        cursor = self.conn.execute(
             "SELECT * FROM symbols WHERE file_id = ? ORDER BY line_start",
             (file_id,)
         )
@@ -362,7 +369,7 @@ class Database:
     
     def delete_symbols_in_file(self, file_id: int) -> int:
         """Delete all symbols in a file. Returns count deleted."""
-        cursor = self._conn.execute(
+        cursor = self.conn.execute(
             "DELETE FROM symbols WHERE file_id = ?",
             (file_id,)
         )
@@ -381,7 +388,7 @@ class Database:
         Returns:
             List of matching symbols with rank
         """
-        cursor = self._conn.execute(
+        cursor = self.conn.execute(
             """
             SELECT s.*, rank
             FROM symbols_fts
@@ -397,7 +404,7 @@ class Database:
     # Edge operations
     
     def add_edge(self, source_id: int, target_id: int, kind: str, file_id: int,
-                 metadata: Optional[Dict[str, Any]] = None) -> int:
+                 confidence: float = 1.0, metadata: Optional[Dict[str, Any]] = None) -> int:
         """
         Add a relationship edge between symbols.
         
@@ -406,19 +413,34 @@ class Database:
             target_id: Target symbol ID  
             kind: Edge type (call, import, inherit, etc.)
             file_id: File where edge occurs
+            confidence: Confidence score (0.0 to 1.0)
             metadata: Optional JSON-serializable metadata dict
         
         Returns:
             Edge ID
         """
         metadata_json = json.dumps(metadata) if metadata else None
-        cursor = self._conn.execute(
+        
+        # Check if edge already exists to avoid duplicates
+        cursor = self.conn.execute(
             """
-            INSERT INTO edges (source_id, target_id, kind, file_id, metadata)
-            VALUES (?, ?, ?, ?, ?)
+            SELECT id FROM edges 
+            WHERE source_id = ? AND target_id = ? AND kind = ? AND file_id = ?
+            LIMIT 1
+            """,
+            (source_id, target_id, kind, file_id)
+        )
+        row = cursor.fetchone()
+        if row:
+            return row[0]
+
+        cursor = self.conn.execute(
+            """
+            INSERT INTO edges (source_id, target_id, kind, file_id, confidence, metadata)
+            VALUES (?, ?, ?, ?, ?, ?)
             RETURNING id
             """,
-            (source_id, target_id, kind, file_id, metadata_json)
+            (source_id, target_id, kind, file_id, confidence, metadata_json)
         )
         
         self._transaction_count += 1
@@ -434,7 +456,7 @@ class Database:
         Returns:
             Callsite ID
         """
-        cursor = self._conn.execute(
+        cursor = self.conn.execute(
             """
             INSERT INTO callsites (edge_id, line, column, context)
             VALUES (?, ?, ?, ?)
@@ -450,7 +472,7 @@ class Database:
     
     def get_outgoing_edges(self, symbol_id: int) -> List[Dict[str, Any]]:
         """Get all edges originating from a symbol."""
-        cursor = self._conn.execute(
+        cursor = self.conn.execute(
             """
             SELECT e.*, s.name as target_name, s.kind as target_kind
             FROM edges e
@@ -463,7 +485,7 @@ class Database:
     
     def get_incoming_edges(self, symbol_id: int) -> List[Dict[str, Any]]:
         """Get all edges targeting a symbol."""
-        cursor = self._conn.execute(
+        cursor = self.conn.execute(
             """
             SELECT e.*, s.name as source_name, s.kind as source_kind
             FROM edges e
@@ -476,7 +498,7 @@ class Database:
     
     def delete_edges_in_file(self, file_id: int) -> int:
         """Delete all edges associated with a file."""
-        cursor = self._conn.execute(
+        cursor = self.conn.execute(
             "DELETE FROM edges WHERE file_id = ?",
             (file_id,)
         )
@@ -488,7 +510,7 @@ class Database:
     
     def get_meta(self, key: str) -> Optional[str]:
         """Get metadata value."""
-        cursor = self._conn.execute(
+        cursor = self.conn.execute(
             "SELECT value FROM meta WHERE key = ?",
             (key,)
         )
@@ -508,16 +530,16 @@ class Database:
         stats = {}
         
         # Table counts
-        cursor = self._conn.execute("SELECT COUNT(*) FROM files")
+        cursor = self.conn.execute("SELECT COUNT(*) FROM files")
         stats['files'] = cursor.fetchone()[0]
         
-        cursor = self._conn.execute("SELECT COUNT(*) FROM symbols")
+        cursor = self.conn.execute("SELECT COUNT(*) FROM symbols")
         stats['symbols'] = cursor.fetchone()[0]
         
-        cursor = self._conn.execute("SELECT COUNT(*) FROM edges")
+        cursor = self.conn.execute("SELECT COUNT(*) FROM edges")
         stats['edges'] = cursor.fetchone()[0]
         
-        cursor = self._conn.execute("SELECT COUNT(*) FROM callsites")
+        cursor = self.conn.execute("SELECT COUNT(*) FROM callsites")
         stats['callsites'] = cursor.fetchone()[0]
         
         # Metadata

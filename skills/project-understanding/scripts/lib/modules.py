@@ -46,6 +46,7 @@ class ModuleEdge:
     version_constraint: Optional[str] = None
     is_optional: bool = False
     is_dev: bool = False
+    metadata: Dict[str, Any] = field(default_factory=dict)
     
     def __hash__(self):
         return hash((self.source, self.target, self.kind))
@@ -656,6 +657,69 @@ class RustModuleParser(ModuleParser):
         return []
 
 
+class CppModuleParser(ModuleParser):
+    """Parser for C++ CMakeLists.txt and other build files."""
+    
+    def can_parse(self, file_path: Path) -> bool:
+        return file_path.name == "CMakeLists.txt"
+    
+    def parse(self, file_path: Path) -> Tuple[Optional[ModuleNode], List[ModuleEdge]]:
+        try:
+            content = file_path.read_text()
+        except IOError:
+            return None, []
+        
+        # Extract project name
+        project_match = re.search(r'project\s*\(\s*([a-zA-Z0-9_-]+)', content, re.IGNORECASE)
+        name = project_match.group(1) if project_match else file_path.parent.name
+        
+        module = ModuleNode(
+            id=f"cpp:{name}",
+            name=name,
+            type='project',
+            language='cpp',
+            path=file_path.parent,
+        )
+        
+        edges = []
+        
+        # Look for targets (add_executable, add_library)
+        target_matches = re.finditer(r'add_(?:library|executable)\s*\(\s*([a-zA-Z0-9_-]+)', content, re.IGNORECASE)
+        for match in target_matches:
+            target_name = match.group(1)
+            # Create a module for each target if it's not the main project name
+            if target_name != name:
+                target_node = ModuleNode(
+                    id=f"cpp:{target_name}",
+                    name=target_name,
+                    type='target',
+                    language='cpp',
+                    path=file_path.parent
+                )
+                # Relationship between project and target
+                edges.append(ModuleEdge(
+                    source=module.id,
+                    target=target_node.id,
+                    kind='EXPORTS_TO'
+                ))
+        
+        # Look for dependencies (target_link_libraries)
+        link_matches = re.finditer(r'target_link_libraries\s*\(\s*([a-zA-Z0-9_-]+)\s+(?:PUBLIC|PRIVATE|INTERFACE)?\s*(.*?)\)', content, re.IGNORECASE | re.DOTALL)
+        for match in link_matches:
+            source_target = match.group(1)
+            libs = match.group(2).split()
+            for lib in libs:
+                if lib in ('PUBLIC', 'PRIVATE', 'INTERFACE'):
+                    continue
+                edges.append(ModuleEdge(
+                    source=f"cpp:{source_target}",
+                    target=f"cpp:{lib}",
+                    kind='MODULE_DEPENDS_ON'
+                ))
+                
+        return module, edges
+
+
 class ModuleDependencyAnalyzer:
     """Analyzes module dependencies across the entire repository."""
     
@@ -666,7 +730,8 @@ class ModuleDependencyAnalyzer:
             JavaScriptModuleParser(repo_root),
             PythonModuleParser(repo_root),
             GoModuleParser(repo_root),
-            RustModuleParser(repo_root)
+            RustModuleParser(repo_root),
+            CppModuleParser(repo_root)
         ]
         self.modules: Dict[str, ModuleNode] = {}
         self.edges: List[ModuleEdge] = []
@@ -726,6 +791,11 @@ class ModuleDependencyAnalyzer:
             elif isinstance(parser, RustModuleParser):
                 for path in self.repo_root.rglob("Cargo.toml"):
                     if "target" not in str(path):
+                        manifests.append(path)
+
+            elif isinstance(parser, CppModuleParser):
+                for path in self.repo_root.rglob("CMakeLists.txt"):
+                    if "build" not in str(path):
                         manifests.append(path)
         
         return manifests

@@ -129,34 +129,42 @@ class ArchitecturePack:
 class FrameworkDetector:
     """Detects frameworks used in the codebase."""
     
-    # Framework signatures: (name, type, import_patterns, decorator_patterns)
+    # Framework signatures: (name, type, import_patterns, decorator_patterns, languages)
     FRAMEWORK_SIGNATURES = [
         # Web frameworks
-        ("Flask", FrameworkType.WEB, [r"from flask", r"import flask"], [r"@app\.route", r"@.*\.route"]),
-        ("Django", FrameworkType.WEB, [r"from django", r"import django"], [r"@.*\.dispatch", r"class.*View"]),
-        ("FastAPI", FrameworkType.WEB, [r"from fastapi", r"import fastapi"], [r"@app\.get", r"@.*\.(get|post|put|delete)"]),
-        ("Express", FrameworkType.WEB, [r"require\(['\"]express['\"]\)"], [r"app\.(get|post|put|delete)"]),
-        ("Spring Boot", FrameworkType.WEB, [r"import org\.springframework"], [r"@RestController", r"@RequestMapping"]),
+        ("Flask", FrameworkType.WEB, [r"from flask", r"import flask"], [r"@app\.route", r"@.*\.route"], ["python"]),
+        ("Django", FrameworkType.WEB, [r"from django", r"import django"], [r"@.*\.dispatch", r"class.*View"], ["python"]),
+        ("FastAPI", FrameworkType.WEB, [r"from fastapi", r"import fastapi"], [r"@app\.get", r"@.*\.(get|post|put|delete)"], ["python"]),
+        ("Express", FrameworkType.WEB, [r"require\(['\"]express['\"]\)"], [r"app\.(get|post|put|delete)"], ["javascript", "typescript"]),
+        ("Spring Boot", FrameworkType.WEB, [r"import org\.springframework"], [r"@RestController", r"@RequestMapping"], ["java", "kotlin"]),
         
         # CLI frameworks
-        ("Click", FrameworkType.CLI, [r"import click", r"from click"], [r"@click\.command", r"@click\.group"]),
-        ("Typer", FrameworkType.CLI, [r"import typer", r"from typer"], [r"@app\.command", r"typer\.Typer"]),
-        ("Argparse", FrameworkType.CLI, [r"import argparse", r"from argparse"], [r"ArgumentParser"]),
+        ("Click", FrameworkType.CLI, [r"import click", r"from click"], [r"@click\.command", r"@click\.group"], ["python"]),
+        ("Typer", FrameworkType.CLI, [r"import typer", r"from typer"], [r"@app\.command", r"typer\.Typer"], ["python"]),
+        ("Argparse", FrameworkType.CLI, [r"import argparse", r"from argparse"], [r"ArgumentParser"], ["python"]),
         
         # Event-driven
-        ("Celery", FrameworkType.EVENT_DRIVEN, [r"from celery", r"import celery"], [r"@app\.task", r"@.*\.task"]),
-        ("RQ", FrameworkType.EVENT_DRIVEN, [r"from rq", r"import rq"], [r"@job"]),
+        ("Celery", FrameworkType.EVENT_DRIVEN, [r"from celery", r"import celery"], [r"@app\.task", r"@.*\.task"], ["python"]),
+        ("RQ", FrameworkType.EVENT_DRIVEN, [r"from rq", r"import rq"], [r"@job"], ["python"]),
         
         # Testing
-        ("pytest", FrameworkType.TESTING, [r"import pytest", r"from pytest"], [r"@pytest\.fixture", r"def test_"]),
-        ("unittest", FrameworkType.TESTING, [r"import unittest", r"from unittest"], [r"class.*TestCase"]),
+        ("pytest", FrameworkType.TESTING, [r"import pytest", r"from pytest"], [r"@pytest\.fixture", r"def test_"], ["python"]),
+        ("unittest", FrameworkType.TESTING, [r"import unittest", r"from unittest"], [r"class.*TestCase"], ["python"]),
+        
+        # Native/System frameworks (C++)
+        ("Qt", FrameworkType.WEB, [r"#include <Q", r"QT_"], [r"Q_OBJECT", r"SLOTS", r"SIGNALS"], ["cpp"]),
+        ("MFC", FrameworkType.WEB, [r"#include <afx", r"include <atl"], [r"DECLARE_MESSAGE_MAP"], ["cpp"]),
     ]
     
-    def detect_frameworks(self, files_content: Dict[str, str]) -> List[Framework]:
+    def detect_frameworks(self, files_content: Dict[str, str], languages: List[str]) -> List[Framework]:
         """Detect frameworks from file contents."""
         frameworks = []
         
-        for name, fw_type, import_patterns, decorator_patterns in self.FRAMEWORK_SIGNATURES:
+        for name, fw_type, import_patterns, decorator_patterns, fw_languages in self.FRAMEWORK_SIGNATURES:
+            # Skip if framework is not for detected languages
+            if languages and not any(lang in languages for lang in fw_languages):
+                continue
+                
             matched_files = []
             entry_points = []
             
@@ -203,14 +211,14 @@ class LayerClassifier:
     LAYER_PATTERNS = [
         (LayerType.ROUTES, [r"[/\\]routes", r"[/\\]urls", r"[/\\]endpoints"], [r"@.*\.route", r"@.*\.(get|post|put|delete)"]),
         (LayerType.CONTROLLERS, [r"[/\\]controllers?", r"[/\\]handlers?"], [r"class.*Controller", r"def handle"]),
-        (LayerType.SERVICES, [r"[/\\]services?", r"[/\\]business", r"[/\\]logic"], [r"class.*Service", r"def process"]),
-        (LayerType.MODELS, [r"[/\\]models?", r"[/\\]entities?", r"[/\\]domain"], [r"class.*Model", r"BaseModel", r"@dataclass"]),
-        (LayerType.VIEWS, [r"[/\\]views?", r"[/\\]templates?"], [r"def render", r"class.*View"]),
+        (LayerType.SERVICES, [r"[/\\]services?", r"[/\\]business", r"[/\\]logic", r"[/\\]core", r"[/\\]engine"], [r"class.*Service", r"def process"]),
+        (LayerType.MODELS, [r"[/\\]models?", r"[/\\]entities?", r"[/\\]domain", r"[/\\]data", r"[/\\]db"], [r"class.*Model", r"BaseModel", r"@dataclass"]),
+        (LayerType.VIEWS, [r"[/\\]views?", r"[/\\]templates?", r"[/\\]ui", r"[/\\]gui", r"[/\\]frontend"], [r"def render", r"class.*View", r"QWidget"]),
         (LayerType.MIDDLEWARE, [r"[/\\]middleware"], [r"class.*Middleware", r"def process_request"]),
         (LayerType.COMMANDS, [r"[/\\]commands?", r"[/\\]cli"], [r"@click\.command", r"@.*\.command"]),
         (LayerType.HANDLERS, [r"[/\\]handlers?", r"[/\\]consumers?"], [r"def handle", r"def consume"]),
         (LayerType.CONFIG, [r"[/\\]config", r"[/\\]settings"], [r"CONFIG", r"SETTINGS", r"class.*Config"]),
-        (LayerType.UTILS, [r"[/\\]utils?", r"[/\\]helpers?"], [r"def helper", r"def util"]),
+        (LayerType.UTILS, [r"[/\\]utils?", r"[/\\]helpers?", r"[/\\]common", r"[/\\]shared"], [r"def helper", r"def util"]),
     ]
     
     def classify_layers(self, files_content: Dict[str, str]) -> List[Layer]:
@@ -307,12 +315,12 @@ class ArchitectureAnalyzer:
         self.layer_classifier = LayerClassifier()
         self.pattern_detector = PatternDetector()
     
-    def analyze(self, files_content: Dict[str, str]) -> ArchitecturePack:
+    def analyze(self, files_content: Dict[str, str], languages: Optional[List[str]] = None) -> ArchitecturePack:
         """Perform full architecture analysis."""
         pack = ArchitecturePack()
         
         # Detect frameworks
-        pack.frameworks = self.framework_detector.detect_frameworks(files_content)
+        pack.frameworks = self.framework_detector.detect_frameworks(files_content, languages or [])
         
         # Classify layers
         pack.layers = self.layer_classifier.classify_layers(files_content)
@@ -350,14 +358,14 @@ class ArchitectureAnalyzer:
         return recommendations
 
 
-def analyze_architecture(repo_root: Path, files_content: Optional[Dict[str, str]] = None) -> ArchitecturePack:
+def analyze_architecture(repo_root: Path, files_content: Optional[Dict[str, str]] = None, languages: Optional[List[str]] = None) -> ArchitecturePack:
     """Convenience function to analyze repository architecture."""
     analyzer = ArchitectureAnalyzer(repo_root)
     
     if files_content is None:
         # Load files from repo
         files_content = {}
-        for ext in ["*.py", "*.js", "*.ts", "*.go", "*.rs"]:
+        for ext in ["*.py", "*.js", "*.ts", "*.go", "*.rs", "*.cpp", "*.h", "*.hpp", "*.cc", "*.cxx", "*.c"]:
             for file_path in repo_root.rglob(ext):
                 try:
                     rel_path = str(file_path.relative_to(repo_root))
@@ -365,4 +373,4 @@ def analyze_architecture(repo_root: Path, files_content: Optional[Dict[str, str]
                 except Exception:
                     pass
     
-    return analyzer.analyze(files_content)
+    return analyzer.analyze(files_content, languages)

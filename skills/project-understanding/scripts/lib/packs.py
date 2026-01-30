@@ -246,7 +246,7 @@ class PackGenerator:
 class RepoMapPackGenerator(PackGenerator):
     """Generator for repository overview packs."""
     
-    def generate(self, budget_tokens: int = 4000, focus: Optional[str] = None) -> RepoMapPack:
+    def generate(self, budget_tokens: int = 4000, focus: Optional[str] = None, depth: int = 4) -> RepoMapPack:
         """
         Generate a RepoMapPack.
         
@@ -256,6 +256,7 @@ class RepoMapPackGenerator(PackGenerator):
         Args:
             budget_tokens: Maximum tokens for the pack
             focus: Optional subdirectory to focus on (prioritizes files under this path)
+            depth: Directory tree depth
         
         Returns:
             RepoMapPack instance
@@ -269,7 +270,7 @@ class RepoMapPackGenerator(PackGenerator):
             files = [f for f in files if f['path'].startswith(focus_path)]
         
         # Build directory tree
-        tree = self._build_directory_tree(files, max_depth=4)
+        tree = self._build_directory_tree(files, max_depth=depth)
         
         # Rank files by importance
         ranked_files = self._rank_files(files)
@@ -338,32 +339,44 @@ class RepoMapPackGenerator(PackGenerator):
             score = 0.0
             reasons = []
             
-            # Symbol density
+            # Symbol density (weighted by cross-references if available)
             symbols = self.db.get_symbols_in_file(f['id'])
             symbol_count = len(symbols)
+            
+            # Calculate total fan-in for symbols in this file
+            file_fan_in = 0
+            for s in symbols:
+                callers = self.graph.callers(s['id'], depth=1)
+                file_fan_in += len(callers)
+            
             if symbol_count > 0:
                 score += min(symbol_count / 10.0, 1.0) * 0.3
                 reasons.append(f"{symbol_count} symbols")
             
+            if file_fan_in > 0:
+                score += min(file_fan_in / 5.0, 1.0) * 0.4
+                reasons.append(f"{file_fan_in} inbound calls")
+            
             # Entry point indicators
-            if path.endswith(('__init__.py', 'main.py', 'app.py', 'index.js')):
+            if path.endswith(('__init__.py', 'main.py', 'app.py', 'index.js', 'main.cpp', 'main.rs')):
                 score += 0.5
                 reasons.append("entry point")
             
             # Core module indicators
-            if any(indicator in path for indicator in ['core/', 'lib/', 'utils/', 'common/']):
+            if any(indicator in path for indicator in ['core/', 'lib/', 'utils/', 'common/', 'src/core']):
                 score += 0.2
                 reasons.append("core module")
             
             # Configuration files
-            if path.endswith(('.json', '.yaml', '.yml', '.toml')):
+            if path.endswith(('.json', '.yaml', '.yml', '.toml', 'CMakeLists.txt')):
                 score += 0.1
             
             scored.append({
                 'path': path,
                 'score': round(score, 3),
                 'reason': ', '.join(reasons) if reasons else 'standard file',
-                'symbol_count': symbol_count
+                'symbol_count': symbol_count,
+                'fan_in': file_fan_in
             })
         
         scored.sort(key=lambda x: (-x['score'], x['path']))

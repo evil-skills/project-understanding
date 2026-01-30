@@ -126,6 +126,12 @@ Gemfile.lock
 composer.lock
 Cargo.lock
 
+# Skill-specific internal directories
+.pui
+skills/project-understanding
+.tasks
+tests/fixtures
+
 # Large data files
 *.csv
 *.tsv
