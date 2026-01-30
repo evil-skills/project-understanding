@@ -9,6 +9,9 @@ Single entrypoint for the Project Understanding Skill with subcommands for:
 - find: fuzzy symbol search (JSON default; Markdown option)
 - zoom: prints ZoomPack for a file/symbol
 - impact: prints ImpactPack for a changed set
+- graph: exports dependency graph (Mermaid/DOT)
+- watch: file watcher with auto-update
+- depgraph: module dependency graph
 """
 
 import argparse
@@ -47,26 +50,245 @@ def cmd_index(args: argparse.Namespace) -> int:
     return 0
 
 
+def _resolve_budget_arg(budget_arg: str, pack_type: str, config_budget: int | None = None) -> int:
+    """Resolve budget argument, handling 'auto' value."""
+    if budget_arg == "auto":
+        from scripts.lib.budget import resolve_budget
+        return resolve_budget("auto", pack_type, config_budget)
+    try:
+        return int(budget_arg)
+    except ValueError:
+        return config_budget or 8000
+
+
 def cmd_repomap(args: argparse.Namespace) -> int:
     """Prints RepoMapPack (Markdown default)."""
-    print("Not implemented yet")
+    from scripts.lib.packs import RepoMapPackGenerator
+    from scripts.lib.budget import resolve_budget
+    
+    repo_root = Path.cwd()
+    
+    # Resolve budget (handles "auto" value)
+    budget = resolve_budget(args.max_tokens, "repomap", config_budget=8000)
+    
+    with RepoMapPackGenerator(repo_root) as gen:
+        pack = gen.generate(budget_tokens=budget, focus=getattr(args, 'focus', None))
+        
+        if args.format == "json":
+            import json
+            print(json.dumps({
+                'directory_tree': pack.directory_tree,
+                'top_files': pack.top_files,
+                'file_symbols': pack.file_symbols,
+                'dependency_summary': pack.dependency_summary,
+            }, indent=2))
+        else:
+            print(pack.to_text())
+    
     return 0
 
 
 def cmd_find(args: argparse.Namespace) -> int:
     """Fuzzy symbol search (JSON default; Markdown option)."""
-    print("Not implemented yet")
-    return 0
+    from scripts.lib.db import Database, get_db_path
+    
+    repo_root = Path.cwd()
+    db_path = get_db_path(repo_root)
+    db = Database(db_path)
+    db.connect()
+    
+    try:
+        results = db.search_symbols(args.query, limit=args.limit)
+        
+        if args.format == "json":
+            import json
+            print(json.dumps(results, indent=2))
+        else:
+            print(f"# Search Results for '{args.query}'\n")
+            for i, r in enumerate(results, 1):
+                print(f"{i}. `{r['name']}` ({r['kind']}) in `{r.get('file_path', 'unknown')}:{r.get('line_start', 0)}`")
+        
+        return 0
+    finally:
+        db.close()
 
 
 def cmd_zoom(args: argparse.Namespace) -> int:
     """Prints ZoomPack for a file/symbol."""
-    print("Not implemented yet")
+    from scripts.lib.packs import ZoomPackGenerator
+    from scripts.lib.budget import resolve_budget
+    
+    repo_root = Path.cwd()
+    
+    # Resolve budget (handles "auto" value)
+    budget = resolve_budget(args.max_tokens, "zoom", config_budget=4000)
+    
+    with ZoomPackGenerator(repo_root) as gen:
+        pack = gen.generate(args.target, budget_tokens=budget)
+        
+        if pack is None:
+            print(f"Symbol not found: {args.target}", file=sys.stderr)
+            return 1
+        
+        if args.format == "json":
+            import json
+            print(json.dumps({
+                'target_symbol': pack.target_symbol,
+                'signature': pack.signature,
+                'docstring': pack.docstring,
+                'callers': pack.callers,
+                'callees': pack.callees,
+            }, indent=2))
+        else:
+            print(pack.to_text())
+    
     return 0
 
 
 def cmd_impact(args: argparse.Namespace) -> int:
     """Prints ImpactPack for a changed set."""
+    from scripts.lib.packs import ImpactPackGenerator
+    from scripts.lib.budget import resolve_budget
+    
+    repo_root = Path.cwd()
+    
+    # Resolve budget (handles "auto" value)
+    budget = resolve_budget(args.max_tokens, "impact", config_budget=6000)
+    
+    with ImpactPackGenerator(repo_root) as gen:
+        # Collect targets from various sources
+        targets = []
+        if hasattr(args, 'git_diff') and args.git_diff:
+            # TODO: Implement git diff parsing
+            print("Git diff parsing not yet implemented")
+        elif hasattr(args, 'files') and args.files:
+            targets = args.files
+        
+        pack = gen.generate(targets, budget_tokens=budget)
+        
+        if args.format == "json":
+            import json
+            print(json.dumps({
+                'changed_items': pack.changed_items,
+                'affected_files': pack.affected_files,
+                'affected_tests': pack.affected_tests,
+                'affected_symbols': pack.affected_symbols,
+                'ranked_inspection': pack.ranked_inspection,
+            }, indent=2))
+        else:
+            print(pack.to_text())
+    
+    return 0
+
+
+def cmd_graph(args: argparse.Namespace) -> int:
+    """Exports dependency graph in Mermaid or DOT format."""
+    from scripts.lib.graph_export import GraphExporter
+    from scripts.lib.db import Database, get_db_path
+    
+    repo_root = Path.cwd()
+    db_path = get_db_path(repo_root)
+    db = Database(db_path)
+    db.connect()
+    
+    try:
+        # Ensure connection is established
+        if db._conn is None:
+            print("Database connection failed", file=sys.stderr)
+            return 1
+        
+        # Resolve symbol
+        symbol_id = args.symbol
+        if isinstance(symbol_id, str):
+            try:
+                symbol_id = int(symbol_id)
+            except ValueError:
+                # Try to find by name
+                cursor = db._conn.execute(
+                    "SELECT id FROM symbols WHERE name = ? LIMIT 1",
+                    (symbol_id,)
+                )
+                row = cursor.fetchone()
+                if row:
+                    symbol_id = row[0]
+                else:
+                    print(f"Symbol not found: {args.symbol}", file=sys.stderr)
+                    return 1
+        
+        exporter = GraphExporter(db)
+        result = exporter.generate_graph_pack(
+            symbol_id=symbol_id,
+            depth=args.depth,
+            format=args.format,
+            title=args.title if hasattr(args, 'title') else None
+        )
+        
+        print(result)
+        return 0
+    finally:
+        db.close()
+
+
+def cmd_watch(args: argparse.Namespace) -> int:
+    """Watch mode for automatic index updates."""
+    from scripts.lib.watcher import WatchMode
+    from scripts.lib.platform import PlatformSupport, install_signal_handlers
+    
+    # Install signal handlers for clean shutdown
+    install_signal_handlers()
+    
+    repo_root = Path.cwd()
+    skill_root = Path(__file__).parent.parent
+    
+    # Print platform info
+    if hasattr(args, 'verbose') and args.verbose:
+        platform = PlatformSupport()
+        platform.print_report()
+        print()
+    
+    watcher = WatchMode(
+        repo_root=repo_root,
+        skill_root=skill_root,
+        debounce_seconds=args.debounce,
+        verbose=getattr(args, 'verbose', False)
+    )
+    
+    try:
+        watcher.start()
+    except KeyboardInterrupt:
+        watcher.stop()
+    
+    return 0
+
+
+def cmd_depgraph(args: argparse.Namespace) -> int:
+    """Generate module dependency graph."""
+    from scripts.lib.modules import ModuleDependencyAnalyzer
+    
+    repo_root = Path.cwd()
+    analyzer = ModuleDependencyAnalyzer(repo_root, verbose=args.verbose)
+    
+    modules, edges = analyzer.analyze()
+    
+    if args.format == "mermaid":
+        output = analyzer.to_mermaid(scope=args.scope)
+    elif args.format == "dot":
+        output = analyzer.to_dot(scope=args.scope)
+    else:  # json
+        import json
+        output = json.dumps(analyzer.get_dependency_graph(), indent=2)
+    
+    if args.output:
+        Path(args.output).write_text(output)
+        print(f"Dependency graph written to {args.output}")
+    else:
+        print(output)
+    
+    return 0
+
+
+def cmd_benchmark(args: argparse.Namespace) -> int:
+    """Run performance benchmarks."""
     print("Not implemented yet")
     return 0
 
@@ -81,10 +303,15 @@ def main(argv: list[str] | None = None) -> int:
 Examples:
   pui bootstrap              # Set up local runtime dependencies
   pui index                  # Build/update index database
+  pui index --watch          # Build index and start watching for changes
   pui repomap                # Print RepoMapPack (Markdown)
+  pui repomap --budget auto  # Auto-detect token budget for model
   pui find "auth*"           # Fuzzy search for symbols matching "auth*"
   pui zoom src/auth.py       # Print ZoomPack for file
-  pui impact --diff HEAD~1   # Print ImpactPack for recent changes
+  pui impact --git-diff HEAD~1..HEAD  # Print ImpactPack for recent changes
+  pui graph -s auth_login -d 2 --format mermaid  # Export dependency graph
+  pui watch                  # Watch files and auto-update index
+  pui depgraph --format mermaid       # Generate module dependency graph
         """
     )
     
@@ -106,11 +333,6 @@ Examples:
         "--force", "-f",
         action="store_true",
         help="Force full reindex (ignore existing)"
-    )
-    index_parser.add_argument(
-        "--watch", "-w",
-        action="store_true",
-        help="Watch for changes and auto-update"
     )
     index_parser.add_argument(
         "--include", "-i",
@@ -144,9 +366,13 @@ Examples:
     )
     repomap_parser.add_argument(
         "--max-tokens", "-t",
-        type=int,
-        default=8000,
-        help="Maximum tokens in output (default: 8000)"
+        type=str,
+        default="8000",
+        help="Maximum tokens in output (default: 8000, use 'auto' for auto-detection)"
+    )
+    repomap_parser.add_argument(
+        "--focus",
+        help="Focus on specific subdirectory"
     )
     repomap_parser.set_defaults(func=cmd_repomap)
     
@@ -190,9 +416,9 @@ Examples:
     )
     zoom_parser.add_argument(
         "--max-tokens", "-t",
-        type=int,
-        default=4000,
-        help="Maximum tokens in output (default: 4000)"
+        type=str,
+        default="4000",
+        help="Maximum tokens in output (default: 4000, use 'auto' for auto-detection)"
     )
     zoom_parser.add_argument(
         "--context", "-c",
@@ -208,7 +434,7 @@ Examples:
         help="Print ImpactPack for a changed set"
     )
     impact_parser.add_argument(
-        "--diff",
+        "--git-diff",
         metavar="REF",
         help="Git reference range (e.g., HEAD~1..HEAD)"
     )
@@ -225,9 +451,9 @@ Examples:
     )
     impact_parser.add_argument(
         "--max-tokens", "-t",
-        type=int,
-        default=6000,
-        help="Maximum tokens in output (default: 6000)"
+        type=str,
+        default="6000",
+        help="Maximum tokens in output (default: 6000, use 'auto' for auto-detection)"
     )
     impact_parser.add_argument(
         "--include-tests",
@@ -235,6 +461,88 @@ Examples:
         help="Include test impact analysis"
     )
     impact_parser.set_defaults(func=cmd_impact)
+    
+    # graph subcommand
+    graph_parser = subparsers.add_parser(
+        "graph",
+        help="Export dependency graph (Mermaid/DOT)"
+    )
+    graph_parser.add_argument(
+        "--symbol", "-s",
+        required=True,
+        help="Symbol ID or name to start from"
+    )
+    graph_parser.add_argument(
+        "--depth", "-d",
+        type=int,
+        default=2,
+        help="Traversal depth (default: 2)"
+    )
+    graph_parser.add_argument(
+        "--format", "-f",
+        choices=["mermaid", "dot"],
+        default="mermaid",
+        help="Output format (default: mermaid)"
+    )
+    graph_parser.set_defaults(func=cmd_graph)
+    
+    # watch subcommand
+    watch_parser = subparsers.add_parser(
+        "watch",
+        help="Watch files and auto-update index"
+    )
+    watch_parser.add_argument(
+        "--debounce",
+        type=float,
+        default=1.0,
+        help="Debounce delay in seconds (default: 1.0)"
+    )
+    watch_parser.set_defaults(func=cmd_watch)
+    
+    # depgraph subcommand
+    depgraph_parser = subparsers.add_parser(
+        "depgraph",
+        help="Generate module dependency graph"
+    )
+    depgraph_parser.add_argument(
+        "--format", "-f",
+        choices=["mermaid", "dot", "json"],
+        default="mermaid",
+        help="Output format (default: mermaid)"
+    )
+    depgraph_parser.add_argument(
+        "--scope", "-s",
+        choices=["module", "package"],
+        default="module",
+        help="Graph scope (default: module)"
+    )
+    depgraph_parser.add_argument(
+        "--output", "-o",
+        help="Output file (default: stdout)"
+    )
+    depgraph_parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Enable verbose logging"
+    )
+    depgraph_parser.set_defaults(func=cmd_depgraph)
+    
+    # benchmark subcommand
+    benchmark_parser = subparsers.add_parser(
+        "benchmark",
+        help="Run performance benchmarks"
+    )
+    benchmark_parser.add_argument(
+        "--format", "-f",
+        choices=["markdown", "json"],
+        default="markdown",
+        help="Output format (default: markdown)"
+    )
+    benchmark_parser.add_argument(
+        "--output", "-o",
+        help="Output file (default: stdout)"
+    )
+    benchmark_parser.set_defaults(func=cmd_benchmark)
     
     args = parser.parse_args(argv)
     

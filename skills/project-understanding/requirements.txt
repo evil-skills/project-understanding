@@ -1,0 +1,27 @@
+# Core dependencies for Project Understanding Interface
+# Install with: pip install -r requirements.txt
+
+# Database
+sqlite3-python
+
+# Configuration
+pyyaml>=6.0
+
+# File watching (optional but recommended)
+watchdog>=3.0.0
+
+# Parsing (optional but recommended)
+tree-sitter>=0.20.0
+tree-sitter-languages>=1.5.0
+
+# Platform detection
+psutil>=5.9.0
+
+# Development dependencies (optional)
+pytest>=7.0.0
+pytest-cov>=4.0.0
+black>=23.0.0
+mypy>=1.0.0
+
+# Build dependencies (for PyInstaller)
+pyinstaller>=5.0.0
