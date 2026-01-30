@@ -6,6 +6,8 @@ This skill maintains an incremental index of your codebase using Tree-sitter for
 
 ## Installation
 
+### Quick Install (via skills CLI)
+
 Install the skill using the skills CLI:
 
 ```bash
@@ -17,6 +19,39 @@ Or with a specific skill name:
 ```bash
 npx skills add project-understanding-skill/project-understanding-skill --skill project-understanding
 ```
+
+### Manual Install (with bootstrap)
+
+For development or offline environments, use the bootstrap script:
+
+```bash
+# Clone or navigate to the skill directory
+cd project-understanding-skill
+
+# Run bootstrap to create venv and install dependencies
+python scripts/bootstrap.py
+
+# Activate the virtual environment
+source .pui/venv/bin/activate  # Linux/macOS
+# OR
+.pui/venv/Scripts/activate     # Windows
+```
+
+### Offline Mode
+
+For air-gapped or offline environments:
+
+```bash
+# Step 1: On a machine with internet, download packages
+pip download -r scripts/requirements.txt -d .pui/packages
+
+# Step 2: Copy the entire project directory to the offline machine
+
+# Step 3: On the offline machine, run bootstrap with --offline flag
+python scripts/bootstrap.py --offline
+```
+
+**Note:** Offline mode requires pre-downloaded packages in `.pui/packages/`. The bootstrap script will verify existing packages before attempting installation.
 
 ## Quick Demo
 
