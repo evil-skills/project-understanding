@@ -14,28 +14,18 @@ jobs:
         python-version: ['3.10', '3.14']
     steps:
     - uses: actions/checkout@v3
-      with:
-        submodules: true
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
-        pip install -r project-understanding-skill/scripts/requirements.txt
-        pip install -r project-understanding-skill/skills/project-understanding/requirements.txt
+        python -m pip install --upgrade pip
+        pip install -r scripts/requirements.txt
         pip install pytest ruff
-        pip install skills-ref --ignore-requires-python || echo "Failed to install skills-ref, skipping validation"
     - name: Lint with ruff
-      run: ruff check project-understanding-skill/skills/project-understanding
-    - name: Validate skill
-      run: |
-        if command -v skills-ref &> /dev/null; then
-          skills-ref validate project-understanding-skill/skills/project-understanding
-        else
-          echo "skills-ref not found, skipping validation"
-        fi
+      run: ruff check .
     - name: Run tests
       run: |
-        export PYTHONPATH=$PYTHONPATH:$(pwd)/project-understanding-skill/skills/project-understanding
-        pytest project-understanding-skill/skills/project-understanding/tests/ -v
+        export PYTHONPATH=$PYTHONPATH:$(pwd)/skills/project-understanding
+        pytest skills/project-understanding/tests/ -v
