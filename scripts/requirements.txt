@@ -1,0 +1,29 @@
+# Project Understanding Skill - Pinned Dependencies
+# Generated: 2026-01-30
+# Python: >=3.8
+#
+# To install:
+#   pip install -r requirements.txt
+#
+# To download for offline use:
+#   pip download -r requirements.txt -d .pui/packages
+
+# Core dependencies - tree-sitter for parsing
+tree-sitter==0.20.4
+tree-sitter-languages==1.10.2
+
+# Additional tree-sitter language packages (pinned for reproducibility)
+tree-sitter-python==0.20.4
+tree-sitter-javascript==0.20.3
+tree-sitter-typescript==0.20.5
+tree-sitter-go==0.20.0
+tree-sitter-rust==0.20.4
+
+# Build dependencies (required for compiling grammars)
+setuptools>=65.0.0
+wheel>=0.40.0
+
+# Development dependencies (optional)
+pytest>=7.0.0
+pytest-cov>=4.0.0
+ruff>=0.1.0
