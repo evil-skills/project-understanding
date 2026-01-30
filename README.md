@@ -14,10 +14,37 @@ Install the skill using the skills CLI:
 npx skills add project-understanding-skill/project-understanding-skill
 ```
 
-Or with a specific skill name:
+Verify the installation:
+
+```bash
+npx skills list
+```
+
+For a targeted install (specific skill only):
 
 ```bash
 npx skills add project-understanding-skill/project-understanding-skill --skill project-understanding
+```
+
+#### Expected Folder Structure
+
+After installation, the skill will be available at:
+
+```
+skills/project-understanding/
+├── SKILL.md              # Skill specification and usage guide
+├── scripts/              # Python scripts for indexing and analysis
+│   ├── pui.py
+│   ├── bootstrap.py
+│   └── lib/
+├── references/           # Extended documentation
+│   ├── REFERENCE.md
+│   ├── TROUBLESHOOTING.md
+│   ├── PACK_FORMAT.md
+│   ├── DB_SCHEMA.md
+│   └── LANG_SUPPORT.md
+└── assets/               # Configuration assets
+    └── default-ignore.txt
 ```
 
 ### Manual Install (with bootstrap)
@@ -101,6 +128,32 @@ Before releasing a new version of this skill, ensure the following:
 - [ ] **CHANGELOG**: CHANGELOG.md updated with new features and fixes (if applicable)
 - [ ] **CI Passing**: All GitHub Actions checks are green
 - [ ] **Manual Testing**: Skill tested locally with real repositories
+
+### Spec Compliance Validation
+
+To validate the skill meets the Agent Skills specification:
+
+```bash
+skills-ref validate skills/project-understanding
+```
+
+This checks:
+- YAML frontmatter validity (name, description, version)
+- Directory structure compliance
+- SKILL.md formatting and length
+- Reference file accessibility
+
+Fix any reported frontmatter naming, path, or formatting violations before release.
+
+## Skills.sh
+
+This skill is published on the [skills.sh](https://skills.sh) registry:
+
+[![View on skills.sh](https://img.shields.io/badge/skills.sh-view-blue)](https://skills.sh/project-understanding-skill/project-understanding-skill/project-understanding)
+
+**Direct URL:** `https://skills.sh/project-understanding-skill/project-understanding-skill/project-understanding`
+
+The SKILL.md is rendered as a readable documentation page. Ensure it stays under 500 lines for optimal readability.
 
 ## License
 

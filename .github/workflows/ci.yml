@@ -26,9 +26,12 @@ jobs:
 
       - name: Validate skill
         run: |
-          # Coming soon: skills-ref validate skills/project-understanding
+          # Validate skill spec compliance using skills-ref
+          # Install: pip install skills-ref
+          # Local run: skills-ref validate skills/project-understanding
           echo "Skill validation: Checking SKILL.md exists..."
           test -f skills/project-understanding/SKILL.md && echo "SKILL.md found ✓"
+          echo "Note: Full validation requires 'skills-ref validate skills/project-understanding'"
 
       - name: Lint with ruff
         run: |
