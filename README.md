@@ -116,6 +116,40 @@ project-understanding impact --symbol MyFunction
 - **Incremental Indexing**: Only re-index changed files for fast updates
 - **Token Budgeting**: Control how much context is returned to fit within LLM context windows
 
+## Performance Benchmarks
+
+The following performance targets are expected when running on a typical development machine (2.5GHz CPU, SSD):
+
+### Index Performance
+
+| Metric | Target | Notes |
+|--------|--------|-------|
+| **Cold Start** | < 30s for 1000 files | Initial indexing of repository |
+| **Incremental Update** | < 5s for 10 changed files | Updating after changes |
+| **Files/sec** | 50+ files/second | Single-threaded parsing rate |
+
+### Query Performance
+
+| Metric | Target | Notes |
+|--------|--------|-------|
+| **Repomap Generation** | < 5s | Generate repository overview |
+| **Zoom Query** | < 3s | Lookup specific symbol details |
+| **Impact Analysis** | < 5s | Dependency graph traversal |
+| **Search** | < 1s | Symbol search with FTS |
+
+### Token Budget Compliance
+
+All pack generators respect token budgets:
+- **RepoMap Pack**: Default 8000 tokens, automatically truncates
+- **Zoom Pack**: Default 4000 tokens, prioritizes code + docs
+- **Impact Pack**: Default 6000 tokens, includes affected files
+
+### Scaling Characteristics
+
+- **Small repos** (< 100 files): Near-instant queries (< 1s)
+- **Medium repos** (< 1000 files): Meets all targets above
+- **Large repos** (> 10000 files): Recommend using `focus` option to subset analysis
+
 ## Release Checklist
 
 Before releasing a new version of this skill, ensure the following:
