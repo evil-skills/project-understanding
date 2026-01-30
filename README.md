@@ -137,11 +137,30 @@ To validate the skill meets the Agent Skills specification:
 skills-ref validate skills/project-understanding
 ```
 
-This checks:
-- YAML frontmatter validity (name, description, version)
-- Directory structure compliance
-- SKILL.md formatting and length
-- Reference file accessibility
+#### Expected Validation Output
+
+A successful validation produces output similar to:
+
+```
+✓ Validating skill: project-understanding
+✓ YAML frontmatter parsed successfully
+✓ Required fields present (name, description, version, license)
+✓ Directory structure compliant
+✓ SKILL.md formatting valid (166 lines)
+✓ Reference files accessible
+✓ All validation checks passed
+```
+
+#### Common Fixes for Violations
+
+| Violation | Cause | Fix |
+|-----------|-------|-----|
+| `Missing required field: version` | Frontmatter lacks version | Add `version: "x.y.z"` to metadata |
+| `Invalid YAML syntax` | Malformed frontmatter | Check indentation and quote multi-line strings with `\|` |
+| `SKILL.md exceeds 500 lines` | Documentation too long | Move extended content to `references/` files |
+| `Missing references/ directory` | Required folder absent | Create `skills/project-understanding/references/` |
+| `scripts/ directory missing` | No scripts folder | Create `skills/project-understanding/scripts/` |
+| `Name mismatch` | Folder name ≠ skill name | Rename folder to match `name:` in frontmatter |
 
 Fix any reported frontmatter naming, path, or formatting violations before release.
 
